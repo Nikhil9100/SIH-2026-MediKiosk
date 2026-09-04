@@ -154,9 +154,9 @@ export default function SummaryStep() {
       <div className="fixed bottom-0 left-0 w-full bg-surface/90 backdrop-blur-sm p-6 flex justify-center border-t border-border">
         <button
           onClick={() => router.push("/language")}
-          className="max-w-[640px] w-full bg-primary text-white font-bold text-2xl py-5 rounded-xl shadow-lg hover:bg-primary-dark animate-press transition-colors"
+          className="max-w-[640px] w-full bg-primary text-white font-bold text-lg sm:text-2xl py-4 sm:py-5 rounded-xl shadow-lg hover:bg-primary-dark animate-press transition-colors leading-tight"
         >
-          Naye Mareez Ke Liye Shuru Karein (New Patient) ⟳
+          Naye Mareez Ke Liye Shuru Karein <br className="sm:hidden" /> (New Patient) ⟳
         </button>
       </div>
     </div>

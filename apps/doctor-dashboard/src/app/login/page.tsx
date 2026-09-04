@@ -182,7 +182,7 @@ export default function LoginScreen() {
         <button 
           onClick={handleNext}
           disabled={!isOtpMode ? mobileNumber.length !== 10 : otp.length !== 6}
-          className="max-w-[800px] w-full bg-primary text-white font-bold text-2xl py-5 rounded-xl shadow-lg hover:bg-primary-dark animate-press transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="max-w-[800px] w-full bg-primary text-white font-bold text-lg sm:text-2xl py-4 sm:py-5 rounded-xl shadow-lg hover:bg-primary-dark animate-press transition-colors disabled:opacity-50 disabled:cursor-not-allowed leading-tight"
         >
           {isOtpMode ? "Verify & Continue (सत्यापित करें) →" : "Send OTP (ओटीपी भेजें) →"}
         </button>

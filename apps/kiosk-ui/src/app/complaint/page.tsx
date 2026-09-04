@@ -360,10 +360,10 @@ export default function ChiefComplaintScreen() {
             <div className="w-6 h-6 sm:w-7 sm:h-7">
               <MicIcon />
             </div>
-            <span className="font-bold text-base sm:text-lg">
+            <span className="font-bold text-sm sm:text-lg text-left">
               {isListening 
-                ? "Sun rahe hain... Bolte rahiye (Listening to your pain points...)" 
-                : "Bol kar batayein (Tap to Speak Multiple Symptoms)"}
+                ? "Sun rahe hain... (Listening...)" 
+                : "Bol kar batayein (Tap to Speak)"}
             </span>
           </button>
         </div>
@@ -373,10 +373,10 @@ export default function ChiefComplaintScreen() {
       <div className="fixed bottom-0 left-0 w-full bg-surface/95 backdrop-blur-md p-4 sm:p-5 flex justify-center border-t border-border z-40">
         <button 
           onClick={handleNext}
-          className="max-w-6xl w-full bg-primary text-white font-bold text-xl sm:text-2xl py-4 sm:py-5 rounded-2xl shadow-lg hover:bg-primary-dark animate-press transition-colors flex items-center justify-center gap-2"
+          className="max-w-6xl w-full bg-primary text-white font-bold text-lg sm:text-xl md:text-2xl py-4 sm:py-5 rounded-2xl shadow-lg hover:bg-primary-dark animate-press transition-colors flex items-center justify-center gap-2"
         >
-          <span>Puraani Parchi Scan Karein (Next: {selectedIds.length} Points Selected)</span>
-          <span className="text-2xl">→</span>
+          <span className="text-center leading-tight">Puraani Parchi Scan Karein <br className="sm:hidden" />(Next: {selectedIds.length} Selected)</span>
+          <span className="text-2xl hidden sm:inline">→</span>
         </button>
       </div>
     </div>

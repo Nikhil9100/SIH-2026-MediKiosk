@@ -39,7 +39,7 @@ export default function TopBar() {
           )}
         >
           <User className="w-4 h-4" />
-          <span>Patient Kiosk</span>
+          <span className="hidden sm:inline">Patient Kiosk</span>
         </button>
 
         <button
@@ -52,7 +52,7 @@ export default function TopBar() {
           )}
         >
           <Stethoscope className="w-4 h-4" />
-          <span>Doctor Console</span>
+          <span className="hidden sm:inline">Doctor Console</span>
           {waitingCount > 0 && (
             <span className={cn(
               "px-1.5 py-0.2 rounded-full text-xs font-bold",
@@ -76,7 +76,7 @@ export default function TopBar() {
           className="flex items-center gap-1.5 bg-alert text-white px-3 sm:px-4 py-2 rounded-lg font-bold text-sm hover:bg-[#C0392B] animate-press shadow-sm"
         >
           <Siren className="w-4 h-4 animate-bounce" />
-          <span>SOS</span>
+          <span className="hidden sm:inline">SOS</span>
         </button>
       </div>
     </header>
