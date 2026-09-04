@@ -106,7 +106,11 @@ export default function PhysicianConsole() {
                     <span className="text-[10px] font-bold bg-teal-light text-teal px-2 py-0.5 rounded">
                       {p.department.split(' ')[0]}
                     </span>
-                    {p.status === 'pushed' ? (
+                    {p.redFlags && p.redFlags.length > 0 ? (
+                      <span className="text-[10px] font-black bg-alert text-white px-2 py-0.5 rounded flex items-center gap-1 animate-pulse">
+                        🚨 PRIORITY PATIENT
+                      </span>
+                    ) : p.status === 'pushed' ? (
                       <span className="text-[10px] font-bold bg-success/15 text-success px-2 py-0.5 rounded flex items-center gap-1">
                         <CheckCircle2 className="w-2.5 h-2.5" /> EMR Pushed
                       </span>
@@ -167,23 +171,32 @@ export default function PhysicianConsole() {
 
             {/* Red Flag Clinical Alert Banner */}
             {patient.redFlags && patient.redFlags.length > 0 && (
-              <div className="bg-alert/10 border-2 border-alert rounded-2xl p-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-alert text-white flex items-center justify-center shrink-0">
-                    <AlertTriangle className="w-5 h-5" />
+              <div className="bg-alert/15 border-2 border-alert rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-alert text-white flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                    <AlertTriangle className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-alert text-base">
-                      🚨 Red Flag Clinical Alert: {patient.redFlags[0].condition}
-                    </h3>
-                    <p className="text-xs text-text-muted mt-0.5">
-                      {patient.redFlags[0].clinicalRationale}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="bg-alert text-white text-xs font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        🚨 PRIORITY PATIENT
+                      </span>
+                      <span className="text-xs text-text-muted font-mono">
+                        Time: {new Date(patient.redFlags[0].triggeredAt).toLocaleTimeString("en-IN")}
+                      </span>
+                    </div>
+                    <div className="mt-2 space-y-1 text-xs text-text">
+                      <p><strong>Triggering symptoms:</strong> <span className="font-bold text-alert">{patient.redFlags[0].condition}</span></p>
+                      <p><strong>Patient/Session ID:</strong> <span className="font-mono text-primary font-bold">{patient.id}</span> · Token #{patient.token}</p>
+                      <p><strong>Reason for priority:</strong> <span className="text-alert font-bold">Potential emergency symptoms reported — urgent clinical assessment recommended.</span></p>
+                    </div>
                   </div>
                 </div>
-                <span className="text-xs font-bold uppercase bg-alert text-white px-3 py-1 rounded-full shrink-0">
-                  Code Red Triage
-                </span>
+                <div className="text-right shrink-0">
+                  <span className="text-xs font-bold bg-alert text-white px-3.5 py-2 rounded-xl block shadow-sm">
+                    Immediate Human Triage
+                  </span>
+                </div>
               </div>
             )}
 

@@ -201,12 +201,25 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
 
       {/* Red-Flag Emergency Banner if triggered */}
       {activeRedFlag && (
-        <div className="bg-alert/15 border-2 border-alert rounded-2xl p-4 flex items-center gap-3.5 text-alert animate-pulse">
-          <AlertTriangle className="w-6 h-6 shrink-0" />
-          <div className="text-xs sm:text-sm">
-            <span className="font-bold block">🚨 RED-FLAG TRIAGE ALERT: {activeRedFlag.condition}</span>
-            <span className="text-text-muted">{activeRedFlag.rationale}</span>
+        <div className="bg-alert/15 border-2 border-alert rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-alert">
+          <div className="flex items-start gap-3.5">
+            <AlertTriangle className="w-7 h-7 shrink-0 text-alert animate-bounce mt-0.5" />
+            <div>
+              <h4 className="font-extrabold text-base sm:text-lg text-alert leading-tight">
+                ⚠️ Please contact hospital staff immediately.
+              </h4>
+              <p className="text-sm font-bold text-alert mt-0.5">
+                ⚠️ कृपया तुरंत अस्पताल के कर्मचारियों से संपर्क करें।
+              </p>
+              <div className="mt-1 text-xs text-text-muted space-y-0.5">
+                <p><strong>Triggering symptoms:</strong> <span className="font-semibold text-alert">{activeRedFlag.condition}</span></p>
+                <p><strong>Reason for priority:</strong> <span className="font-semibold text-text">Potential emergency symptoms reported — urgent clinical assessment recommended.</span></p>
+              </div>
+            </div>
           </div>
+          <span className="text-xs font-bold uppercase bg-alert text-white px-3.5 py-1.5 rounded-xl shrink-0 shadow-sm">
+            Emergency Triage Alert
+          </span>
         </div>
       )}
 
