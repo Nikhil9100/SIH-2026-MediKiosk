@@ -8,18 +8,26 @@
 
 ## Current State
 
-We are at **Day 0**. No code exists yet. We have:
+We are at **Day 1**. Core UI flow and interactive demo are complete:
 - ✅ Full problem statement analyzed (SIH 2026 — PS ID 26047)
 - ✅ Organization context understood (Ministry of Ayush / AIIA)
-- ✅ Architecture & tech stack decided
+- ✅ Architecture & tech stack decided (Next.js 14 + Supabase PostgreSQL)
 - ✅ PRD v2.0 completed (5th-Grader-First Design + Scalability)
 - ✅ Architecture document completed (multi-tenant schema)
 - ✅ Phases document completed
 - ✅ Design system created (custom icon spec, color palette, typography, component tokens)
-- ✅ Custom medical icon set direction established (NO stock emojis)
-- ✅ Kiosk screen mockup and pain scale illustration generated
-- ⬜ Project scaffolding not started
-- ⬜ No prototypes built yet
+- ✅ Gap analysis conducted against reference repos (`Amaans-variant`)
+- ✅ Full End-to-End UI flow implemented (`kiosk-ui`):
+  - Language Selection screen (`/language`)
+  - ABHA / Mobile OTP Identity screen (`/login`)
+  - Chief Complaint & Ayurvedic Prakriti Triage (`/complaint`)
+  - Document & Lab Scanner simulation with NER (`/document`)
+  - Printable OPD Token Slip generator (`/summary`)
+  - Live Segmented Role Switcher (`TopBar`)
+  - Full Physician Console with live queue, amend mode, and ABDM push (`PhysicianConsole`)
+- ✅ Code successfully pushed to GitHub: [Nikhil9100/SIH-2026-MediKiosk](https://github.com/Nikhil9100/SIH-2026-MediKiosk)
+- ⬜ Supabase database migrations (tables & RLS setup)
+- ⬜ Live Bhashini ASR / Web Speech voice integration
 
 ---
 
