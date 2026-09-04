@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { cn } from "@/lib/utils";
-import { MicIcon } from "@/components/icons";
 
 export default function LoginScreen() {
   const [mobileNumber, setMobileNumber] = useState("");

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Noto_Sans } from "next/font/google";
 import "./globals.css";
+import AppShell from "@/components/AppShell";
 
 const notoSans = Noto_Sans({ 
   subsets: ["latin", "devanagari"],
@@ -9,8 +10,8 @@ const notoSans = Noto_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "MediKiosk - Smart Intake",
-  description: "AI-powered clinical history taking kiosk",
+  title: "MediKiosk - Smart Clinical Intake Platform",
+  description: "AI-powered clinical history taking & AYUSH triage kiosk",
 };
 
 export default function RootLayout({
@@ -21,7 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${notoSans.variable} font-sans`}>
-        {children}
+        <AppShell>
+          {children}
+        </AppShell>
       </body>
     </html>
   );
