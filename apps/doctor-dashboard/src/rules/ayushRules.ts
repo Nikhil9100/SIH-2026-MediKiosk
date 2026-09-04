@@ -185,33 +185,28 @@ export function determineAyushProfile(
   prakritiInput: string,
   overrides?: Partial<AyushAssessment>
 ): AyushAssessment {
-  const hasPitta = prakritiInput.includes("Pitta");
-  const hasVata = prakritiInput.includes("Vata");
-  const hasKapha = prakritiInput.includes("Kapha");
-  const profileKey = (hasVata && hasPitta) ? "Vata-Pitta" : (hasPitta && hasKapha) ? "Pitta-Kapha" : (hasVata && hasKapha) ? "Vata-Kapha" : hasPitta ? "Pitta" : hasKapha ? "Kapha" : "Vata";
-  const agni = hasPitta ? "Tikshnagni (Hyperactive)" : hasKapha ? "Mandagni (Hypoactive)" : "Vishamagni (Irregular)";
-  
-  const defaultVikriti = profileKey.includes("Pitta") 
-    ? "Pitta-Vata Vriddhi (Amlapitta & Ushnata)" 
-    : profileKey.includes("Kapha")
-    ? "Kapha-Vata Mandagni"
-    : "Vata Vriddhi (Stiffness & Vataja pain)";
+  const hasPitta = prakritiInput?.includes("Pitta");
+  const hasVata = prakritiInput?.includes("Vata");
+  const hasKapha = prakritiInput?.includes("Kapha");
+  const profileKey = prakritiInput 
+    ? ((hasVata && hasPitta) ? "Vata-Pitta" : (hasPitta && hasKapha) ? "Pitta-Kapha" : (hasVata && hasKapha) ? "Vata-Kapha" : hasPitta ? "Pitta" : hasKapha ? "Kapha" : "Vata")
+    : "Not assessed";
 
   return {
-    prakriti: profileKey,
-    vikriti: overrides?.vikriti || defaultVikriti,
-    sara: overrides?.sara || "Madhyama Sara (Balanced tissue reserve)",
-    samhanana: overrides?.samhanana || "Madhyama (Moderate structural frame)",
-    pramana: overrides?.pramana || "Anuroopa (Proportionate body metrics)",
-    satmya: overrides?.satmya || "Madhyama Satmya (Average dietary tolerance)",
-    sattva: overrides?.sattva || "Madhyama Sattva (Balanced psychological resilience)",
-    aharaShakti: overrides?.aharaShakti || (profileKey.includes("Pitta") ? "Tikshna Ahara Shakti (Strong appetite)" : "Madhyama Ahara Shakti"),
-    vyayamaShakti: overrides?.vyayamaShakti || "Madhyama (Moderate physical endurance)",
-    vaya: overrides?.vaya || "Madhyama Vaya (Adult / 16-60 years)",
-    ahara: overrides?.ahara || (profileKey.includes("Pitta") ? "Tikshna-Katu rasa pradhana (Spicy/Irregular)" : "Mixed dietary habits"),
-    vihara: overrides?.vihara || "Ratri-jagarana (Late sleeping habits reported)",
-    agni: overrides?.agni || agni,
-    bala: overrides?.bala || "Madhyama (Medium Vitality)",
-    koshtha: overrides?.koshtha || (hasPitta ? "Mridu (Soft/Fast)" : hasVata ? "Krura (Constipated/Hard)" : "Madhyama (Balanced)")
+    prakriti: overrides?.prakriti || profileKey,
+    vikriti: overrides?.vikriti || "Not assessed",
+    sara: overrides?.sara || "Not assessed",
+    samhanana: overrides?.samhanana || "Not assessed",
+    pramana: overrides?.pramana || "Not assessed",
+    satmya: overrides?.satmya || "Not assessed",
+    sattva: overrides?.sattva || "Not assessed",
+    aharaShakti: overrides?.aharaShakti || "Not assessed",
+    vyayamaShakti: overrides?.vyayamaShakti || "Not assessed",
+    vaya: overrides?.vaya || "Not assessed",
+    ahara: overrides?.ahara || "Not assessed",
+    vihara: overrides?.vihara || "Not assessed",
+    agni: overrides?.agni || "Not assessed",
+    bala: overrides?.bala || "Not assessed",
+    koshtha: overrides?.koshtha || "Not assessed"
   };
 }

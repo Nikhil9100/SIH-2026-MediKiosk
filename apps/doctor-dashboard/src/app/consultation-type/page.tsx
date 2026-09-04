@@ -86,26 +86,26 @@ export default function ConsultationTypeScreen() {
         </div>
 
         {/* 2 Big Consultation Stream Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full mt-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full">
           {/* 1. Modern Medicine Card */}
           <div
             onClick={() => handleSelect("modern")}
             className={cn(
-              "cursor-pointer rounded-3xl p-6 sm:p-7 border-2 transition-all flex flex-col justify-between relative bg-surface-card animate-press shadow-sm hover:shadow-md",
+              "cursor-pointer rounded-3xl p-6 sm:p-7 border-2 transition-all flex flex-col justify-between relative bg-surface-card shadow-xs hover:border-primary/50",
               selectedType === "modern"
-                ? "border-primary bg-primary-light/40 ring-4 ring-primary/20 scale-[1.02]"
-                : "border-border hover:border-primary/40"
+                ? "border-primary bg-primary-light/40 ring-2 ring-primary/20"
+                : "border-border"
             )}
           >
             {selectedType === "modern" && (
-              <div className="absolute top-4 right-4 bg-primary text-white p-1 rounded-full shadow-sm">
+              <div className="absolute top-4 right-4 bg-primary text-white p-1 rounded-full shadow-xs">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
             )}
 
             <div className="space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
-                <Stethoscope className="w-8 h-8" />
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
+                <Stethoscope className="w-7 h-7" />
               </div>
 
               <div>
@@ -114,7 +114,7 @@ export default function ConsultationTypeScreen() {
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-text mt-2">Modern Medicine</h2>
                 <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                  General OPD, Internal Medicine, Cardiology, and Specialty Triage.
+                  General OPD, Internal Medicine, Cardiology, and Emergency Triage.
                 </p>
               </div>
 
@@ -140,9 +140,9 @@ export default function ConsultationTypeScreen() {
                 handleSelect("modern");
               }}
               className={cn(
-                "w-full mt-6 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all",
+                "w-full mt-5 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors",
                 selectedType === "modern"
-                  ? "bg-primary text-white shadow-sm"
+                  ? "bg-primary text-white shadow-xs"
                   : "bg-surface border border-border text-text hover:bg-surface-card"
               )}
             >
@@ -154,21 +154,21 @@ export default function ConsultationTypeScreen() {
           <div
             onClick={() => handleSelect("ayurveda")}
             className={cn(
-              "cursor-pointer rounded-3xl p-6 sm:p-7 border-2 transition-all flex flex-col justify-between relative bg-surface-card animate-press shadow-sm hover:shadow-md",
+              "cursor-pointer rounded-3xl p-6 sm:p-7 border-2 transition-all flex flex-col justify-between relative bg-surface-card shadow-xs hover:border-teal/50",
               selectedType === "ayurveda"
-                ? "border-teal bg-teal-light/50 ring-4 ring-teal/20 scale-[1.02]"
-                : "border-border hover:border-teal/40"
+                ? "border-teal bg-teal-light/40 ring-2 ring-teal/20"
+                : "border-border"
             )}
           >
             {selectedType === "ayurveda" && (
-              <div className="absolute top-4 right-4 bg-teal text-white p-1 rounded-full shadow-sm">
+              <div className="absolute top-4 right-4 bg-teal text-white p-1 rounded-full shadow-xs">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
             )}
 
             <div className="space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-teal-light text-teal flex items-center justify-center border border-teal/30">
-                <Leaf className="w-8 h-8 text-teal" />
+              <div className="w-14 h-14 rounded-2xl bg-teal-light text-teal flex items-center justify-center border border-teal/30">
+                <Leaf className="w-7 h-7 text-teal" />
               </div>
 
               <div>
@@ -203,9 +203,9 @@ export default function ConsultationTypeScreen() {
                 handleSelect("ayurveda");
               }}
               className={cn(
-                "w-full mt-6 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all",
+                "w-full mt-5 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-colors",
                 selectedType === "ayurveda"
-                  ? "bg-teal text-white shadow-sm"
+                  ? "bg-teal text-white shadow-xs"
                   : "bg-surface border border-border text-text hover:bg-surface-card"
               )}
             >
@@ -215,24 +215,24 @@ export default function ConsultationTypeScreen() {
         </div>
 
         {/* Clinical Safety Notice */}
-        <div className="w-full bg-amber-50 border border-amber-300 rounded-2xl p-4 text-xs text-amber-900 flex items-start gap-3">
-          <span className="text-base">ℹ️</span>
+        <div className="w-full bg-surface-card border border-border rounded-2xl p-4 text-xs text-text-muted flex items-start gap-3">
+          <span className="text-base text-primary">ℹ️</span>
           <p className="leading-relaxed">
-            <strong>Clinical Safety Protocol:</strong> MediKiosk collects structured history autonomously for qualified clinician evaluation. Artificial Intelligence does not diagnose Dosha imbalances or prescribe Chikitsa autonomously.
+            <strong className="text-text">Clinical Protocol:</strong> MediKiosk collects structured medical history autonomously for clinician evaluation. Final clinical diagnosis and treatment decisions remain exclusively with the consulting physician / Vaidya.
           </p>
         </div>
-
-        {/* Action Button */}
-        <div className="w-full flex justify-center pt-2">
-          <button
-            onClick={handleContinue}
-            className="w-full max-w-md py-4 rounded-2xl bg-primary hover:bg-primary-dark text-white font-bold text-base shadow-md flex items-center justify-center gap-2 animate-press transition-all"
-          >
-            <span>आगे बढ़ें (Continue to Check-In)</span>
-            <ArrowRight className="w-5 h-5" />
-          </button>
-        </div>
       </main>
+
+      {/* Sticky Bottom Action Button */}
+      <div className="fixed bottom-0 left-0 w-full bg-surface/90 backdrop-blur-sm p-4 sm:p-5 flex justify-center border-t border-border z-40">
+        <button
+          onClick={handleContinue}
+          className="max-w-[840px] w-full bg-primary text-white font-bold text-base sm:text-xl py-4 rounded-2xl shadow-md hover:bg-primary-dark transition-colors flex items-center justify-center gap-2"
+        >
+          <span>आगे बढ़ें (Continue to Patient Check-In)</span>
+          <ArrowRight className="w-5 h-5" />
+        </button>
+      </div>
     </div>
   );
 }

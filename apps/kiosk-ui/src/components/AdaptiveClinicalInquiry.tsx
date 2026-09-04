@@ -47,6 +47,7 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isEditingText, setIsEditingText] = useState(false);
   const [customText, setCustomText] = useState("");
+  const [voiceError, setVoiceError] = useState<{ error: string; message: string } | null>(null);
 
   const questionRef = useRef<HTMLDivElement>(null);
 
@@ -58,6 +59,7 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
     setEngineState(st);
     setPendingSpeechResult(null);
     setInterimTranscript("");
+    setVoiceError(null);
     if (onHistoryUpdate) {
       onHistoryUpdate(st.history, st.summaryDraft || "");
     }
@@ -75,12 +77,13 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
   };
 
   // Start speech recognition flow
-  const handleStartVoice = () => {
+  const handleStartVoice = (isDemoTrigger: boolean = false) => {
     VoiceService.stopSpeaking();
     setIsListening(true);
     setInterimTranscript("");
     setPendingSpeechResult(null);
     setIsEditingText(false);
+    setVoiceError(null);
 
     // Provide relevant vernacular demo phrase based on current question for instant testing
     let samplePhrase = "Mujhe teen din se pet mein dard hai";
@@ -101,17 +104,18 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
         setInterimTranscript("");
         setPendingSpeechResult(result);
         setCustomText(result.normalizedText);
-
-        // If confidence is very high and does not need explicit clarification, auto-confirm can proceed
-        // But per requirement: never silently discard uncertainty, allow patient to see and confirm
       },
-      onError: () => {
+      onError: (errCode, friendlyMsg) => {
         setIsListening(false);
+        setVoiceError({
+          error: errCode,
+          message: friendlyMsg || "We could not hear you clearly. (हम आपकी आवाज़ स्पष्ट रूप से नहीं सुन सके)"
+        });
       },
       onEnd: () => {
         setIsListening(false);
       }
-    }, "hi-IN", samplePhrase);
+    }, "hi-IN", samplePhrase, isDemoTrigger);
   };
 
   const handleCancelVoice = () => {
@@ -119,6 +123,7 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
     setIsListening(false);
     setInterimTranscript("");
     setPendingSpeechResult(null);
+    setVoiceError(null);
   };
 
   // Confirm patient spoken/edited answer and feed into engine
@@ -150,6 +155,7 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
     engine.answerChoice(choiceId);
     const updated = engine.getState();
     setEngineState(updated);
+    setVoiceError(null);
     if (onHistoryUpdate) {
       onHistoryUpdate(updated.history, updated.summaryDraft || "");
     }
@@ -171,6 +177,7 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
     setEngineState(st);
     setPendingSpeechResult(null);
     setInterimTranscript("");
+    setVoiceError(null);
     if (onHistoryUpdate) {
       onHistoryUpdate(st.history, st.summaryDraft || "");
     }
@@ -264,6 +271,53 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
             </button>
           </div>
 
+          {/* Voice Error Fallback Banner if microphone failed */}
+          {voiceError && (
+            <div className="bg-alert/10 border-2 border-alert/30 rounded-2xl p-4 space-y-3">
+              <div className="flex items-start gap-2.5 text-alert">
+                <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                <div>
+                  <h5 className="font-bold text-sm text-alert">{voiceError.message}</h5>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    No clinical information was generated. Please choose how you would like to proceed:
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  onClick={() => handleStartVoice(false)}
+                  className="bg-alert text-white font-bold text-xs py-2 px-3.5 rounded-xl hover:bg-alert/90 flex items-center gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Try Again (पुनः प्रयास करें)
+                </button>
+                <button
+                  onClick={() => {
+                    setVoiceError(null);
+                    setIsEditingText(true);
+                    setPendingSpeechResult({
+                      rawText: "",
+                      normalizedText: "",
+                      extractedEntities: {},
+                      confidence: 1.0,
+                      needsConfirmation: false,
+                      confirmationMessageHi: "",
+                      confirmationMessageEn: ""
+                    });
+                  }}
+                  className="bg-surface border border-border text-text font-bold text-xs py-2 px-3.5 rounded-xl hover:bg-surface-sunk flex items-center gap-1.5"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-primary" /> Type Instead (लिखकर दर्ज करें)
+                </button>
+                <button
+                  onClick={() => setVoiceError(null)}
+                  className="bg-surface border border-border text-text-muted font-bold text-xs py-2 px-3.5 rounded-xl hover:text-text"
+                >
+                  Select by Touch (छूकर चुनें)
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Voice Input Section (Bolkar Batayein) */}
           <div className="w-full bg-gradient-to-r from-teal-light/40 to-primary-light/40 border-2 border-teal/40 rounded-2xl p-4 sm:p-5 flex flex-col items-center text-center space-y-3">
             {!isListening && !pendingSpeechResult ? (
@@ -278,13 +332,24 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
                   </p>
                 </div>
 
-                <button
-                  onClick={handleStartVoice}
-                  className="w-full sm:w-auto bg-teal text-white font-bold text-base px-6 py-3.5 rounded-xl shadow-md hover:bg-teal-bright animate-press flex items-center justify-center gap-2.5 shrink-0"
-                >
-                  <Mic className="w-5 h-5 animate-pulse" />
-                  <span>🎙️ Bolkar Batayein</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={() => handleStartVoice(false)}
+                    className="flex-1 sm:flex-none bg-teal text-white font-bold text-base px-5 py-3 rounded-xl shadow-md hover:bg-teal-bright animate-press flex items-center justify-center gap-2 shrink-0"
+                  >
+                    <Mic className="w-5 h-5 animate-pulse" />
+                    <span>🎙️ Speak Now</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleStartVoice(true)}
+                    className="bg-surface border border-teal/40 text-teal font-bold text-xs px-3 py-3 rounded-xl hover:bg-teal-light/50 flex items-center gap-1 shrink-0"
+                    title="Simulate speech for demonstration"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="hidden sm:inline">Demo Voice</span>
+                  </button>
+                </div>
               </div>
             ) : isListening ? (
               /* Active Recording / Listening State */
@@ -363,7 +428,7 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
                   </button>
 
                   <button
-                    onClick={handleStartVoice}
+                    onClick={() => handleStartVoice(false)}
                     className="bg-surface border border-border text-text font-bold text-sm py-2.5 px-4 rounded-xl hover:bg-surface-sunk animate-press flex items-center justify-center gap-2"
                   >
                     <RefreshCw className="w-4 h-4 text-primary" />
@@ -381,6 +446,7 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
               </div>
             ) : null}
           </div>
+
 
           {/* Or Tap One of the Choices Below */}
           <div className="space-y-2">

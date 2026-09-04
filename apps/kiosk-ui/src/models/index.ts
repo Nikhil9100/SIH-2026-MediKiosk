@@ -122,6 +122,131 @@ export interface AyushAssessment {
   koshtha?: string;         // "Mridu" | "Madhyama" | "Krura" (Bowel habit)
 }
 
+export type ClinicalFactStatus = "KNOWN" | "DENIED" | "NOT_ASKED" | "UNKNOWN" | "DECLINED";
+
+export interface ClinicalFact<T> {
+  status: ClinicalFactStatus;
+  value?: T;
+  source?: "voice" | "touch" | "text" | "document" | "doctor";
+  confidence?: number;
+  capturedAt?: number;
+}
+
+export interface CanonicalClinicalHistory {
+  chiefComplaint: ClinicalFact<string>;
+  onset: ClinicalFact<string>;
+  duration: ClinicalFact<string>;
+  location: ClinicalFact<string>;
+  severity: ClinicalFact<number>;
+  character: ClinicalFact<string>;
+  radiation: ClinicalFact<string>;
+  aggravatingFactors: ClinicalFact<string[]>;
+  relievingFactors: ClinicalFact<string[]>;
+  associatedSymptoms: ClinicalFact<string[]>;
+  pastMedicalHistory: ClinicalFact<string[]>;
+  pastSurgicalHistory: ClinicalFact<string[]>;
+  medications: ClinicalFact<string[]>;
+  allergies: ClinicalFact<string[]>;
+  familyHistory: ClinicalFact<string[]>;
+  personalHistory: {
+    diet: ClinicalFact<string>;
+    smoking: ClinicalFact<string>;
+    alcohol: ClinicalFact<string>;
+    sleep: ClinicalFact<string>;
+    bowelBladder: ClinicalFact<string>;
+  };
+  investigations: ClinicalFact<string[]>;
+  otherRelevantInformation: ClinicalFact<string>;
+}
+
+export interface PatientSessionMetadata {
+  startedAt: number;
+  completedAt?: number;
+  kioskId: string;
+  userAgent?: string;
+}
+
+export interface PatientSession {
+  sessionId: string;
+  patient: Patient;
+  preferredLanguage: string; // "hi" | "en" | "mr" | "gu" | "bn" | "ta"
+  voiceLanguage: string;     // "hi-IN" | "en-IN" | "hinglish" | "mr-IN" | "gu-IN" | "bn-IN" | "ta-IN"
+  consultationType: ConsultationType;
+  complaints: Complaint[];
+  clinicalHistory: CanonicalClinicalHistory;
+  ayushAssessment?: AyushAssessment;
+  documents: MedicalDocument[];
+  redFlags: RedFlag[];
+  clinicalSummary?: ClinicalSummary;
+  doctorReview?: DoctorReview;
+  consent: {
+    granted: boolean;
+    timestamp: number;
+  };
+  metadata: PatientSessionMetadata;
+}
+
+export function createDefaultCanonicalHistory(): CanonicalClinicalHistory {
+  const notAsked = <T>(): ClinicalFact<T> => ({ status: "NOT_ASKED" });
+  return {
+    chiefComplaint: notAsked<string>(),
+    onset: notAsked<string>(),
+    duration: notAsked<string>(),
+    location: notAsked<string>(),
+    severity: notAsked<number>(),
+    character: notAsked<string>(),
+    radiation: notAsked<string>(),
+    aggravatingFactors: notAsked<string[]>(),
+    relievingFactors: notAsked<string[]>(),
+    associatedSymptoms: notAsked<string[]>(),
+    pastMedicalHistory: notAsked<string[]>(),
+    pastSurgicalHistory: notAsked<string[]>(),
+    medications: notAsked<string[]>(),
+    allergies: notAsked<string[]>(),
+    familyHistory: notAsked<string[]>(),
+    personalHistory: {
+      diet: notAsked<string>(),
+      smoking: notAsked<string>(),
+      alcohol: notAsked<string>(),
+      sleep: notAsked<string>(),
+      bowelBladder: notAsked<string>(),
+    },
+    investigations: notAsked<string[]>(),
+    otherRelevantInformation: notAsked<string>(),
+  };
+}
+
+export function createEmptyPatientSession(patientId?: string): PatientSession {
+  const now = Date.now();
+  const id = patientId || `pat-${now}`;
+  return {
+    sessionId: `sess-${now}`,
+    patient: {
+      id,
+      name: "New Patient",
+      age: 30,
+      gender: "M",
+      mobile: "+91 90000 00000",
+      registeredAt: now,
+    },
+    preferredLanguage: "hi",
+    voiceLanguage: "hi-IN",
+    consultationType: "modern",
+    complaints: [],
+    clinicalHistory: createDefaultCanonicalHistory(),
+    documents: [],
+    redFlags: [],
+    consent: {
+      granted: true,
+      timestamp: now,
+    },
+    metadata: {
+      startedAt: now,
+      kioskId: "kiosk-station-01",
+    },
+  };
+}
+
 export interface ClinicalHistory {
   id: string;
   patientId: string;

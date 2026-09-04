@@ -112,45 +112,46 @@ export class ConversationalHistoryEngine {
       timestamp: Date.now()
     });
 
-    // 2. Keyword & semantic matcher across question choices
-    let matchedChoice = q.choices.find(c => {
-      const hiLower = c.labelHi.toLowerCase();
-      const enLower = c.labelEn.toLowerCase();
-      return (
-        normalized.includes(hiLower) ||
-        normalized.includes(enLower) ||
-        hiLower.split(" ").some(word => word.length > 3 && normalized.includes(word)) ||
-        enLower.split(" ").some(word => word.length > 3 && normalized.includes(word))
-      );
-    });
+    let matchedChoice: typeof q.choices[0] | undefined;
 
-    // Specific vernacular patterns
-    if (!matchedChoice) {
-      if (q.field === "duration") {
-        if (/आज|घंटे|hour|sudden|abhi/i.test(normalized)) {
-          matchedChoice = q.choices[0];
-        } else if (/दिन|day|2|3|4/i.test(normalized)) {
-          matchedChoice = q.choices[1] || q.choices[0];
-        } else if (/हफ्ते|महीने|week|month|purana/i.test(normalized)) {
-          matchedChoice = q.choices[2] || q.choices[1];
-        }
-      } else if (q.field === "radiation") {
-        if (/हाथ|कंधे|arm|jaw|jabda/i.test(normalized)) {
-          matchedChoice = q.choices.find(c => c.id.includes("arm_jaw"));
-        } else if (/पीठ|back/i.test(normalized)) {
-          matchedChoice = q.choices.find(c => c.id.includes("back"));
-        } else if (/नहीं|no|none/i.test(normalized)) {
-          matchedChoice = q.choices.find(c => c.id.includes("none"));
-        }
-      } else if (q.field === "location") {
-        if (/ऊपर|up|chest|chhati/i.test(normalized)) {
-          matchedChoice = q.choices.find(c => c.id.includes("upper"));
-        } else if (/नीचे|pedu|lower/i.test(normalized)) {
-          matchedChoice = q.choices.find(c => c.id.includes("lower"));
-        } else if (/दाहिनी|right/i.test(normalized)) {
-          matchedChoice = q.choices.find(c => c.id.includes("right"));
-        }
+    // Check specific field patterns first for higher precision
+    if (q.field === "duration") {
+      if (/आज|घंटे|hour|sudden|abhi/i.test(normalized)) {
+        matchedChoice = q.choices[0];
+      } else if (/दिन|din|day|days|2|3|4|5/i.test(normalized)) {
+        matchedChoice = q.choices.find(c => c.id.includes("days") || c.id.includes("2-4") || c.id.includes("1-3"));
+      } else if (/हफ्ते|महीने|week|month|purana/i.test(normalized)) {
+        matchedChoice = q.choices.find(c => c.id.includes("chronic") || c.id.includes("weeks"));
       }
+    } else if (q.field === "radiation") {
+      if (/हाथ|कंधे|arm|jaw|jabda/i.test(normalized)) {
+        matchedChoice = q.choices.find(c => c.id.includes("arm_jaw"));
+      } else if (/पीठ|back/i.test(normalized)) {
+        matchedChoice = q.choices.find(c => c.id.includes("back"));
+      } else if (/नहीं|no|none/i.test(normalized)) {
+        matchedChoice = q.choices.find(c => c.id.includes("none"));
+      }
+    } else if (q.field === "location") {
+      if (/ऊपर|up|chest|chhati/i.test(normalized)) {
+        matchedChoice = q.choices.find(c => c.id.includes("upper"));
+      } else if (/नीचे|pedu|lower/i.test(normalized)) {
+        matchedChoice = q.choices.find(c => c.id.includes("lower"));
+      } else if (/दाहिनी|right/i.test(normalized)) {
+        matchedChoice = q.choices.find(c => c.id.includes("right"));
+      }
+    }
+
+    if (!matchedChoice) {
+      matchedChoice = q.choices.find(c => {
+        const hiLower = c.labelHi.toLowerCase();
+        const enLower = c.labelEn.toLowerCase();
+        return (
+          normalized.includes(hiLower) ||
+          normalized.includes(enLower) ||
+          hiLower.split(" ").some(word => word.length > 3 && normalized.includes(word)) ||
+          enLower.split(" ").some(word => word.length > 3 && normalized.includes(word))
+        );
+      });
     }
 
     if (matchedChoice) {
@@ -161,6 +162,15 @@ export class ConversationalHistoryEngine {
         recognized: true, 
         messageHi: `समझा गया: ${matchedChoice.labelHi}`, 
         messageEn: `Recognized: ${matchedChoice.labelEn}` 
+      };
+    } else if (q.field === "duration" && /din|day|days|hour|hours|week/i.test(normalized)) {
+      this.updateHistoryWithPartial({ duration: input });
+      this.state.detectedRedFlags = this.pathway.checkRedFlags(this.state.history);
+      this.advanceQuestion(q.id);
+      return {
+        recognized: true,
+        messageHi: `दर्ज किया गया: ${input}`,
+        messageEn: `Recorded: ${input}`
       };
     }
 

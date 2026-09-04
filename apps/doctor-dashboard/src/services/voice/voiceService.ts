@@ -4,7 +4,7 @@ export interface RecognitionCallbacks {
   onStart?: () => void;
   onInterim?: (interimText: string) => void;
   onResult: (result: NormalizedSpeechResult) => void;
-  onError?: (error: string) => void;
+  onError?: (error: string, friendlyMessage?: string) => void;
   onEnd?: () => void;
 }
 
@@ -90,15 +90,19 @@ export class VoiceService {
   public static startListening(
     callbacks: RecognitionCallbacks,
     lang: string = "hi-IN",
-    simulatedFallbackPhrase?: string
+    simulatedFallbackPhrase?: string,
+    demoMode: boolean = false
   ): void {
-    if (typeof window === "undefined") return;
+    if (demoMode) {
+      VoiceService.runSimulatedSpeech(callbacks, simulatedFallbackPhrase);
+      return;
+    }
 
-    const win = window as unknown as IWindowSpeech;
+    const win = (typeof window !== "undefined" ? window : {}) as unknown as IWindowSpeech;
     const SpeechRecognition = win.SpeechRecognition || win.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      VoiceService.runSimulatedSpeech(callbacks, simulatedFallbackPhrase);
+      callbacks.onError?.("not-supported", "We could not hear you clearly. (Browser speech recognition not supported)");
       return;
     }
 
@@ -149,11 +153,8 @@ export class VoiceService {
       };
 
       recognition.onerror = (event: { error: string }) => {
-        if (event.error === "not-allowed" || event.error === "no-speech" || event.error === "network") {
-          VoiceService.runSimulatedSpeech(callbacks, simulatedFallbackPhrase);
-        } else {
-          callbacks.onError?.(event.error);
-        }
+        const friendlyMessage = "We could not hear you clearly. (हम आपकी आवाज़ स्पष्ट रूप से नहीं सुन सके)";
+        callbacks.onError?.(event.error, friendlyMessage);
       };
 
       recognition.onend = () => {
@@ -163,7 +164,7 @@ export class VoiceService {
 
       recognition.start();
     } catch {
-      VoiceService.runSimulatedSpeech(callbacks, simulatedFallbackPhrase);
+      callbacks.onError?.("exception", "We could not hear you clearly. (हम आपकी आवाज़ स्पष्ट रूप से नहीं सुन सके)");
     }
   }
 
@@ -178,7 +179,7 @@ export class VoiceService {
     }
   }
 
-  private static runSimulatedSpeech(callbacks: RecognitionCallbacks, fallbackPhrase?: string): void {
+  public static runSimulatedSpeech(callbacks: RecognitionCallbacks, fallbackPhrase?: string): void {
     callbacks.onStart?.();
     const defaultPhrase = fallbackPhrase || "Mujhe teen din se pet mein dard hai";
     
@@ -197,3 +198,4 @@ export class VoiceService {
     }, 1400);
   }
 }
+

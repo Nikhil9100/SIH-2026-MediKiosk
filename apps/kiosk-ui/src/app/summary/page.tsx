@@ -173,73 +173,73 @@ export default function SummaryStep() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
               <div className="bg-surface p-3.5 rounded-xl border border-border">
                 <span className="text-[10px] text-teal font-bold uppercase block font-mono">1. प्रकृति (Prakriti)</span>
-                <p className="font-bold text-text mt-1">{currentPatient.prakriti || "Pitta-Vata"}</p>
+                <p className="font-bold text-text mt-1">{currentPatient.prakriti || currentPatient.ayushAssessment?.prakriti || "Not assessed"}</p>
                 <span className="text-[10px] text-text-muted">Doshic Baseline</span>
               </div>
 
               <div className="bg-surface p-3.5 rounded-xl border border-border">
                 <span className="text-[10px] text-warning font-bold uppercase block font-mono">2. विकृति (Vikriti)</span>
-                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.vikriti || "Pitta-Vata Vriddhi"}</p>
+                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.vikriti || "Not assessed"}</p>
                 <span className="text-[10px] text-text-muted">Doshic Morbidity</span>
               </div>
 
               <div className="bg-surface p-3.5 rounded-xl border border-border">
                 <span className="text-[10px] text-primary font-bold uppercase block font-mono">3. सार (Sara)</span>
-                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.sara || "Madhyama Sara"}</p>
+                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.sara || "Not assessed"}</p>
                 <span className="text-[10px] text-text-muted">Tissue Excellence</span>
               </div>
 
               <div className="bg-surface p-3.5 rounded-xl border border-border">
                 <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">4. संहनन (Samhanana)</span>
-                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.samhanana || "Madhyama (Compact)"}</p>
+                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.samhanana || "Not assessed"}</p>
                 <span className="text-[10px] text-text-muted">Body Compactness</span>
               </div>
 
               <div className="bg-surface p-3.5 rounded-xl border border-border">
                 <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">5. प्रमाण (Pramana)</span>
-                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.pramana || "Anuroopa (Proportionate)"}</p>
+                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.pramana || "Not assessed"}</p>
                 <span className="text-[10px] text-text-muted">Anthropometry</span>
               </div>
 
               <div className="bg-surface p-3.5 rounded-xl border border-border">
                 <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">6. सात्म्य (Satmya)</span>
-                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.satmya || "Madhyama Satmya"}</p>
+                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.satmya || "Not assessed"}</p>
                 <span className="text-[10px] text-text-muted">Adaptability</span>
               </div>
 
               <div className="bg-surface p-3.5 rounded-xl border border-border">
                 <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">7. सत्त्व (Sattva)</span>
-                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.sattva || "Madhyama Sattva"}</p>
+                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.sattva || "Not assessed"}</p>
                 <span className="text-[10px] text-text-muted">Mental Resilience</span>
               </div>
 
               <div className="bg-surface p-3.5 rounded-xl border border-border">
                 <span className="text-[10px] text-warning font-bold uppercase block font-mono">8. आहार शक्ति (Ahara Shakti)</span>
-                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.aharaShakti || "Tikshnagni (Strong hunger)"}</p>
+                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.aharaShakti || "Not assessed"}</p>
                 <span className="text-[10px] text-text-muted">Intake & Digestion</span>
               </div>
 
               <div className="bg-surface p-3.5 rounded-xl border border-border">
                 <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">9. व्यायाम शक्ति (Vyayama Shakti)</span>
-                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.vyayamaShakti || "Madhyama"}</p>
+                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.vyayamaShakti || "Not assessed"}</p>
                 <span className="text-[10px] text-text-muted">Physical Endurance</span>
               </div>
 
               <div className="bg-surface p-3.5 rounded-xl border border-border">
                 <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">10. वय (Vaya)</span>
-                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.vaya || "Madhyama Vaya (Adult)"}</p>
+                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.vaya || "Not assessed"}</p>
                 <span className="text-[10px] text-text-muted">Age Stage</span>
               </div>
 
               <div className="bg-surface p-3.5 rounded-xl border border-border">
                 <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">11. आहार (Ahara)</span>
-                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.ahara || "Tikshna-Katu rasa pradhana"}</p>
+                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.ahara || "Not assessed"}</p>
                 <span className="text-[10px] text-text-muted">Dietary Habits</span>
               </div>
 
               <div className="bg-surface p-3.5 rounded-xl border border-border">
                 <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">12. विहार (Vihara)</span>
-                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.vihara || "Ratri-jagarana (Late sleeping)"}</p>
+                <p className="font-bold text-text mt-1">{currentPatient.ayushAssessment?.vihara || "Not assessed"}</p>
                 <span className="text-[10px] text-text-muted">Daily Lifestyle</span>
               </div>
             </div>

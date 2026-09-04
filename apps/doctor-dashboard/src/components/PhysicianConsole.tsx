@@ -29,8 +29,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type QueueFilterTab = "ALL" | "PRIORITY" | "NORMAL" | "COMPLETED";
-type ClinicalViewTab = "summary" | "history" | "meds_labs" | "timeline" | "ayush";
+type QueueFilterTab = "PRIORITY" | "WAITING" | "REINTERVIEW" | "COMPLETED" | "REJECTED";
+type ClinicalViewTab = "summary" | "history" | "meds_labs" | "timeline" | "audit_trail" | "ayush";
 
 export default function PhysicianConsole() {
   const { 
@@ -77,32 +77,44 @@ export default function PhysicianConsole() {
   });
 
   // Filtered Queue Calculation
-  const { priorityCount, normalCount, completedCount, filteredQueue } = useMemo(() => {
+  const { priorityCount, waitingCount, reinterviewCount, completedCount, rejectedCount, filteredQueue } = useMemo(() => {
     let pCount = 0;
-    let nCount = 0;
+    let wCount = 0;
+    let rCount = 0;
     let cCount = 0;
+    let xCount = 0;
 
     queue.forEach((p) => {
+      const isRejected = p.reviewStatus === "doctor_rejected" || p.status === "rejected";
+      const isReinterview = p.reviewStatus === "reinterview_requested" || p.status === "reinterview";
       const isCompleted = p.reviewStatus === "doctor_verified" || p.status === "completed" || p.status === "pushed";
-      const isPriority = (p.redFlags && p.redFlags.length > 0) || p.room.includes("Emergency") || p.department.includes("Triage");
+      const isPriority = !isCompleted && !isRejected && !isReinterview && ((p.redFlags && p.redFlags.length > 0) || p.room.includes("Emergency") || p.department.includes("Triage"));
 
-      if (isCompleted) {
+      if (isRejected) {
+        xCount++;
+      } else if (isReinterview) {
+        rCount++;
+      } else if (isCompleted) {
         cCount++;
       } else if (isPriority) {
         pCount++;
       } else {
-        nCount++;
+        wCount++;
       }
     });
 
     const filtered = queue.filter((p) => {
+      const isRejected = p.reviewStatus === "doctor_rejected" || p.status === "rejected";
+      const isReinterview = p.reviewStatus === "reinterview_requested" || p.status === "reinterview";
       const isCompleted = p.reviewStatus === "doctor_verified" || p.status === "completed" || p.status === "pushed";
-      const isPriority = (p.redFlags && p.redFlags.length > 0) || p.room.includes("Emergency") || p.department.includes("Triage");
+      const isPriority = !isCompleted && !isRejected && !isReinterview && ((p.redFlags && p.redFlags.length > 0) || p.room.includes("Emergency") || p.department.includes("Triage"));
 
       // Match Tab
-      if (queueTab === "PRIORITY" && (!isPriority || isCompleted)) return false;
-      if (queueTab === "NORMAL" && (isPriority || isCompleted)) return false;
+      if (queueTab === "PRIORITY" && !isPriority) return false;
+      if (queueTab === "WAITING" && (isPriority || isCompleted || isRejected || isReinterview)) return false;
+      if (queueTab === "REINTERVIEW" && !isReinterview) return false;
       if (queueTab === "COMPLETED" && !isCompleted) return false;
+      if (queueTab === "REJECTED" && !isRejected) return false;
 
       // Match Search
       if (searchQuery.trim()) {
@@ -115,12 +127,20 @@ export default function PhysicianConsole() {
       }
 
       return true;
+    }).sort((a, b) => {
+      // Emergency priority patients auto-sort to top
+      const aPriority = (a.redFlags && a.redFlags.length > 0) || a.room.includes("Emergency") || a.department.includes("Triage") ? 1 : 0;
+      const bPriority = (b.redFlags && b.redFlags.length > 0) || b.room.includes("Emergency") || b.department.includes("Triage") ? 1 : 0;
+      if (aPriority !== bPriority) return bPriority - aPriority;
+      return a.waitSince - b.waitSince;
     });
 
     return {
       priorityCount: pCount,
-      normalCount: nCount,
+      waitingCount: wCount,
+      reinterviewCount: rCount,
       completedCount: cCount,
+      rejectedCount: xCount,
       filteredQueue: filtered
     };
   }, [queue, queueTab, searchQuery]);
@@ -221,7 +241,7 @@ export default function PhysicianConsole() {
   const handlePushToAbdm = () => {
     if (!patient) return;
     pushToEmr(patient.id);
-    showToast(`Pushed HL7 FHIR R4 Bundle for ${patient.name} to ABDM Health Data Repository (Tx: ABDM-TX-${patient.token}92)!`);
+    showToast(`[ABDM / FHIR DEMO SANDBOX] Bundle generated for ${patient.name}. External submission simulated!`);
   };
 
   function generateDefaultHpi(p: PatientRecord | undefined) {
@@ -233,7 +253,7 @@ export default function PhysicianConsole() {
     <div className="flex-1 flex flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden bg-surface">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-20 right-8 bg-slate-900 text-white border border-teal/40 px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 z-50 animate-bounce">
+        <div className="fixed top-20 right-8 bg-slate-900 text-white border border-teal/40 px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 z-50 transition-all">
           <CheckCircle2 className="w-5 h-5 text-teal" />
           <span className="font-semibold text-sm">{toastMessage}</span>
         </div>
@@ -289,12 +309,12 @@ export default function PhysicianConsole() {
             />
           </div>
 
-          {/* Top-Level Queue Tabs: PRIORITY, NORMAL, COMPLETED */}
-          <div className="grid grid-cols-3 gap-1 bg-surface p-1 rounded-xl border border-border text-xs font-bold">
+          {/* Top-Level Queue Tabs: PRIORITY, WAITING, REINTERVIEW, COMPLETED, REJECTED */}
+          <div className="flex flex-wrap gap-1 bg-surface p-1 rounded-xl border border-border text-[11px] font-bold">
             <button
               onClick={() => setQueueTab("PRIORITY")}
               className={cn(
-                "py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all",
+                "flex-1 min-w-[65px] py-1.5 px-1.5 rounded-lg flex items-center justify-center gap-1 transition-all",
                 queueTab === "PRIORITY"
                   ? "bg-alert text-white shadow-sm font-black"
                   : "text-text-muted hover:text-text"
@@ -312,39 +332,79 @@ export default function PhysicianConsole() {
             </button>
 
             <button
-              onClick={() => setQueueTab("NORMAL")}
+              onClick={() => setQueueTab("WAITING")}
               className={cn(
-                "py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all",
-                queueTab === "NORMAL"
+                "flex-1 min-w-[60px] py-1.5 px-1.5 rounded-lg flex items-center justify-center gap-1 transition-all",
+                queueTab === "WAITING"
                   ? "bg-primary text-white shadow-sm font-black"
                   : "text-text-muted hover:text-text"
               )}
             >
-              <span>Normal</span>
+              <span>Waiting</span>
               <span className={cn(
                 "px-1.5 py-0.2 rounded-full text-[10px]",
-                queueTab === "NORMAL" ? "bg-white text-primary" : "bg-primary/10 text-primary"
+                queueTab === "WAITING" ? "bg-white text-primary" : "bg-primary/10 text-primary"
               )}>
-                {normalCount}
+                {waitingCount}
               </span>
+            </button>
+
+            <button
+              onClick={() => setQueueTab("REINTERVIEW")}
+              className={cn(
+                "flex-1 min-w-[70px] py-1.5 px-1.5 rounded-lg flex items-center justify-center gap-1 transition-all",
+                queueTab === "REINTERVIEW"
+                  ? "bg-blue-600 text-white shadow-sm font-black"
+                  : "text-text-muted hover:text-text"
+              )}
+            >
+              <span>Re-interview</span>
+              {reinterviewCount > 0 && (
+                <span className={cn(
+                  "px-1.5 py-0.2 rounded-full text-[10px]",
+                  queueTab === "REINTERVIEW" ? "bg-white text-blue-700" : "bg-blue-100 text-blue-800"
+                )}>
+                  {reinterviewCount}
+                </span>
+              )}
             </button>
 
             <button
               onClick={() => setQueueTab("COMPLETED")}
               className={cn(
-                "py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all",
+                "flex-1 min-w-[60px] py-1.5 px-1.5 rounded-lg flex items-center justify-center gap-1 transition-all",
                 queueTab === "COMPLETED"
                   ? "bg-teal text-white shadow-sm font-black"
                   : "text-text-muted hover:text-text"
               )}
             >
-              <span>Done</span>
+              <span>Verified</span>
               <span className={cn(
                 "px-1.5 py-0.2 rounded-full text-[10px]",
                 queueTab === "COMPLETED" ? "bg-white text-teal" : "bg-teal-light text-teal"
               )}>
                 {completedCount}
               </span>
+            </button>
+
+            <button
+              onClick={() => setQueueTab("REJECTED")}
+              className={cn(
+                "flex-1 min-w-[60px] py-1.5 px-1.5 rounded-lg flex items-center justify-center gap-1 transition-all",
+                queueTab === "REJECTED"
+                  ? "bg-rose-700 text-white shadow-sm font-black"
+                  : "text-text-muted hover:text-text"
+              )}
+            >
+              <span>Rejected</span>
+              {rejectedCount > 0 && (
+                <span className={cn(
+                  "px-1.5 py-0.2 rounded-full text-[10px]",
+                  queueTab === "REJECTED" ? "bg-white text-rose-700" : "bg-rose-100 text-rose-800"
+                )}>
+                  {rejectedCount}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -730,17 +790,32 @@ export default function PhysicianConsole() {
               </button>
 
               <button
-                onClick={() => setActiveTab("ayush")}
+                onClick={() => setActiveTab("audit_trail")}
                 className={cn(
                   "px-4 py-2 rounded-xl transition-all shrink-0 flex items-center gap-1.5",
-                  activeTab === "ayush"
+                  activeTab === "audit_trail"
                     ? "bg-primary text-white shadow-sm font-black"
                     : "text-text-muted hover:text-text bg-surface"
                 )}
               >
-                <Flame className="w-3.5 h-3.5" />
-                Ayurvedic Pariksha
+                <History className="w-3.5 h-3.5" />
+                Audit Trail ({patient.auditLogs?.length || 0})
               </button>
+
+              {patient.consultationType === "ayurveda" && (
+                <button
+                  onClick={() => setActiveTab("ayush")}
+                  className={cn(
+                    "px-4 py-2 rounded-xl transition-all shrink-0 flex items-center gap-1.5",
+                    activeTab === "ayush"
+                      ? "bg-primary text-white shadow-sm font-black"
+                      : "text-text-muted hover:text-text bg-surface"
+                  )}
+                >
+                  <Flame className="w-3.5 h-3.5 text-amber-300" />
+                  Ayurvedic Pariksha
+                </button>
+              )}
             </div>
 
             {/* TAB 1: Current Complaint & HPI */}
@@ -1183,7 +1258,60 @@ export default function PhysicianConsole() {
               </div>
             )}
 
-            {/* TAB 5: Ayurvedic Pariksha (Dashavidha - 12 Core SIH Fields) */}
+            {/* TAB 5: Audit Trail */}
+            {activeTab === "audit_trail" && (
+              <div className="bg-surface-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-text text-base flex items-center gap-2">
+                      <History className="w-4 h-4 text-primary" />
+                      Clinical Audit Trail & Verification Logs
+                    </h3>
+                    <p className="text-xs text-text-muted">Transparent history of clinical edits, doctor verifications, and re-interview requests</p>
+                  </div>
+                  <span className="text-xs bg-primary/10 text-primary font-bold px-3 py-1 rounded-full font-mono">
+                    {patient.auditLogs?.length || 0} Events Recorded
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {patient.auditLogs && patient.auditLogs.length > 0 ? (
+                    patient.auditLogs.map((log, idx) => (
+                      <div key={idx} className="bg-surface p-4 rounded-xl border border-border flex items-start gap-4">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 font-bold text-xs">
+                          #{idx + 1}
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-primary">{log.field}</span>
+                            <span className="text-[11px] font-mono text-text-muted">
+                              {new Date(log.timestamp).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                          <p className="text-xs font-semibold text-text">Modified by: <span className="text-primary">{log.author}</span></p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-xs">
+                            <div className="bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+                              <span className="text-[10px] font-bold text-rose-800 uppercase block">Previous Value</span>
+                              <span className="text-rose-900 line-through">{log.previousValue || "N/A"}</span>
+                            </div>
+                            <div className="bg-teal-light p-2.5 rounded-lg border border-teal/30">
+                              <span className="text-[10px] font-bold text-teal uppercase block">New Value</span>
+                              <span className="text-teal font-semibold">{log.newValue}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center bg-surface rounded-xl border border-border text-xs text-text-muted">
+                      No clinical modifications or status updates have been recorded yet for this session.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 6: Ayurvedic Pariksha (Dashavidha - 12 Core SIH Fields) */}
             {activeTab === "ayush" && (
               <div className="bg-surface-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
                 <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1203,73 +1331,73 @@ export default function PhysicianConsole() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
                   <div className="bg-surface p-3.5 rounded-xl border border-border">
                     <span className="text-[10px] text-teal font-bold uppercase block font-mono">1. प्रकृति (Prakriti)</span>
-                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.prakriti || "Vata-Pitta"}</p>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.prakriti || "Not assessed"}</p>
                     <span className="text-[10px] text-text-muted">Doshic Baseline</span>
                   </div>
 
                   <div className="bg-surface p-3.5 rounded-xl border border-border">
                     <span className="text-[10px] text-warning font-bold uppercase block font-mono">2. विकृति (Vikriti)</span>
-                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.vikriti || "Pitta-Vata Vriddhi"}</p>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.vikriti || "Not assessed"}</p>
                     <span className="text-[10px] text-text-muted">Current Morbidity</span>
                   </div>
 
                   <div className="bg-surface p-3.5 rounded-xl border border-border">
                     <span className="text-[10px] text-primary font-bold uppercase block font-mono">3. सार (Sara)</span>
-                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.sara || "Madhyama Sara"}</p>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.sara || "Not assessed"}</p>
                     <span className="text-[10px] text-text-muted">Dhatu Excellence</span>
                   </div>
 
                   <div className="bg-surface p-3.5 rounded-xl border border-border">
                     <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">4. संहनन (Samhanana)</span>
-                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.samhanana || "Madhyama"}</p>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.samhanana || "Not assessed"}</p>
                     <span className="text-[10px] text-text-muted">Body Compactness</span>
                   </div>
 
                   <div className="bg-surface p-3.5 rounded-xl border border-border">
                     <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">5. प्रमाण (Pramana)</span>
-                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.pramana || "Anuroopa"}</p>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.pramana || "Not assessed"}</p>
                     <span className="text-[10px] text-text-muted">Body Proportions</span>
                   </div>
 
                   <div className="bg-surface p-3.5 rounded-xl border border-border">
                     <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">6. सात्म्य (Satmya)</span>
-                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.satmya || "Madhyama Satmya"}</p>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.satmya || "Not assessed"}</p>
                     <span className="text-[10px] text-text-muted">Adaptability</span>
                   </div>
 
                   <div className="bg-surface p-3.5 rounded-xl border border-border">
                     <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">7. सत्त्व (Sattva)</span>
-                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.sattva || "Madhyama Sattva"}</p>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.sattva || "Not assessed"}</p>
                     <span className="text-[10px] text-text-muted">Mental Resilience</span>
                   </div>
 
                   <div className="bg-surface p-3.5 rounded-xl border border-border">
                     <span className="text-[10px] text-warning font-bold uppercase block font-mono">8. आहार शक्ति (Ahara Shakti)</span>
-                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.aharaShakti || "Tikshnagni (Strong appetite)"}</p>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.aharaShakti || "Not assessed"}</p>
                     <span className="text-[10px] text-text-muted">Intake & Agni</span>
                   </div>
 
                   <div className="bg-surface p-3.5 rounded-xl border border-border">
                     <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">9. व्यायाम शक्ति (Vyayama Shakti)</span>
-                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.vyayamaShakti || "Madhyama"}</p>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.vyayamaShakti || "Not assessed"}</p>
                     <span className="text-[10px] text-text-muted">Physical Endurance</span>
                   </div>
 
                   <div className="bg-surface p-3.5 rounded-xl border border-border">
                     <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">10. वय (Vaya)</span>
-                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.vaya || "Madhyama Vaya"}</p>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.vaya || "Not assessed"}</p>
                     <span className="text-[10px] text-text-muted">Age Classification</span>
                   </div>
 
                   <div className="bg-surface p-3.5 rounded-xl border border-border">
                     <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">11. आहार (Ahara)</span>
-                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.ahara || "Tikshna-Katu rasa pradhana"}</p>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.ahara || "Not assessed"}</p>
                     <span className="text-[10px] text-text-muted">Dietary Habits</span>
                   </div>
 
                   <div className="bg-surface p-3.5 rounded-xl border border-border">
                     <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">12. विहार (Vihara)</span>
-                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.vihara || "Ratri-jagarana (Late sleeping)"}</p>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.vihara || "Not assessed"}</p>
                     <span className="text-[10px] text-text-muted">Daily Lifestyle</span>
                   </div>
                 </div>

@@ -9,6 +9,7 @@ export interface NormalizedSpeechResult {
   normalizedText: string;
   detectedComplaint?: "chest_pain" | "abdominal_pain" | "headache" | "fever" | "cough" | "back_pain";
   extractedEntities: {
+    chiefComplaint?: string;
     duration?: string;
     onset?: string;
     location?: string;
@@ -107,8 +108,13 @@ export class SpeechNormalizer {
     if (/thand|chills|kapkapi/i.test(lower)) assoc.push("Chills & Rigors");
     if (assoc.length > 0) entities.associated = assoc;
 
-    // 6. Confidence Scoring & Uncertainty Checks
-    // If text is very short (<3 words) or has no recognized clinical entity:
+    // 6. Extract explicit numeric severity if mentioned (e.g. "8/10", "severity 7")
+    const sevMatch = lower.match(/(?:severity|scale|rate|dard)\s*(?:of|is|:)?\s*([1-9]|10)\s*(?:\/10)?/i);
+    if (sevMatch) {
+      entities.severity = parseInt(sevMatch[1], 10);
+    }
+
+    // 7. Confidence Scoring & Uncertainty Checks
     const recognizedCount = (detectedComplaint ? 1 : 0) + (entities.duration ? 1 : 0) + (entities.character ? 1 : 0) + (entities.radiation ? 1 : 0) + (entities.associated ? 1 : 0);
     
     if (recognizedCount === 0) {
@@ -119,7 +125,6 @@ export class SpeechNormalizer {
       confidence = 0.92;
     }
 
-    // Never silently discard uncertainty: flag if confidence < 0.78
     const needsConfirmation = confidence < 0.78;
 
     const confirmationMessageHi = `क्या आपका मतलब है: "${text}"?`;
@@ -137,3 +142,4 @@ export class SpeechNormalizer {
     };
   }
 }
+

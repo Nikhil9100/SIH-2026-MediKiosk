@@ -7,7 +7,9 @@ import {
   PatientVitals, 
   MedicalTimelineEvent,
   AyushAssessment,
-  ConsultationType
+  ConsultationType,
+  PatientSession,
+  createEmptyPatientSession
 } from "@/models";
 import { routePatientToOPD } from "@/rules/triageRules";
 import { determineAyushProfile } from "@/rules/ayushRules";
@@ -34,6 +36,14 @@ export interface LabValue {
   range: string;
   flag: 'high' | 'low' | 'normal';
   confidence?: number;
+}
+
+export interface AuditLogEntry {
+  timestamp: number;
+  author: string;
+  field: string;
+  previousValue: string;
+  newValue: string;
 }
 
 export interface PatientRecord {
@@ -89,12 +99,23 @@ export interface PatientRecord {
   verifiedAt?: number;
   rejectionReason?: string;
   reinterviewNotes?: string;
+  auditLogs?: AuditLogEntry[];
   status: 'waiting' | 'in-consult' | 'completed' | 'rejected' | 'reinterview' | 'pushed';
 }
 
 interface KioskState {
-  activeView: 'kiosk' | 'physician';
+  activeView: 'kiosk' | 'physician' | 'analytics';
   language: string;
+  preferredLanguage: string;
+  voiceLanguage: string;
+
+  // Accessibility & Demographic Modes
+  easyView: boolean;
+  highContrast: boolean;
+  patientCategory: 'self' | 'assisted_minor' | 'assisted_elderly';
+
+  // Canonical patient intake session
+  activeSession: PatientSession;
   
   // Current in-progress intake session
   currentPatient: {
@@ -132,11 +153,17 @@ interface KioskState {
   selectedPatientId: string | null;
 
   // Actions
-  setView: (view: 'kiosk' | 'physician') => void;
+  setView: (view: 'kiosk' | 'physician' | 'analytics') => void;
   setLanguage: (lang: string) => void;
+  setVoiceLanguage: (voiceLang: string) => void;
+  toggleEasyView: () => void;
+  toggleHighContrast: () => void;
+  setPatientCategory: (cat: 'self' | 'assisted_minor' | 'assisted_elderly') => void;
   setConsultationType: (type: ConsultationType) => void;
+  setPatientDemographics: (demographics: Partial<KioskState['currentPatient']>) => void;
   setComplaint: (id: string, label: string) => void;
   toggleComplaint: (id: string, label: string) => void;
+  setSeverity: (severity: number) => void;
   setAyushData: (prakriti: string) => void;
   setAyushAssessmentField: (field: keyof AyushAssessment, value: string) => void;
   setScannedDocuments: (meds: Medication[], labs: LabValue[]) => void;
@@ -150,6 +177,8 @@ interface KioskState {
   rejectPatient: (id: string, reason: string) => void;
   requestReinterview: (id: string, notes: string) => void;
   pushToEmr: (id: string) => void;
+  loadDemoScenario: (scenario: 1 | 2 | 3) => void;
+  resetDemoEnvironment: () => void;
 }
 
 const SEED_QUEUE: PatientRecord[] = [
@@ -569,6 +598,12 @@ const SEED_QUEUE: PatientRecord[] = [
 export const useKioskStore = create<KioskState>((set, get) => ({
   activeView: 'kiosk',
   language: 'hi',
+  preferredLanguage: 'hi',
+  voiceLanguage: 'hinglish',
+  easyView: false,
+  highContrast: false,
+  patientCategory: 'self',
+  activeSession: createEmptyPatientSession('p-101'),
 
   currentPatient: {
     name: 'Arjun Nair',
@@ -614,7 +649,26 @@ export const useKioskStore = create<KioskState>((set, get) => ({
   selectedPatientId: 'p-101',
 
   setView: (view) => set({ activeView: view }),
-  setLanguage: (lang) => set({ language: lang }),
+  setLanguage: (lang) =>
+    set((state) => ({
+      language: lang,
+      preferredLanguage: lang,
+      activeSession: {
+        ...state.activeSession,
+        preferredLanguage: lang
+      }
+    })),
+  setVoiceLanguage: (voiceLang) =>
+    set((state) => ({
+      voiceLanguage: voiceLang,
+      activeSession: {
+        ...state.activeSession,
+        voiceLanguage: voiceLang
+      }
+    })),
+  toggleEasyView: () => set((state) => ({ easyView: !state.easyView })),
+  toggleHighContrast: () => set((state) => ({ highContrast: !state.highContrast })),
+  setPatientCategory: (cat) => set({ patientCategory: cat }),
   
   setConsultationType: (type) =>
     set((state) => ({
@@ -623,6 +677,35 @@ export const useKioskStore = create<KioskState>((set, get) => ({
         consultationType: type
       }
     })),
+
+  setPatientDemographics: (demographics) =>
+    set((state) => ({
+      currentPatient: {
+        ...state.currentPatient,
+        ...demographics
+      }
+    })),
+
+  setSeverity: (severity: number) =>
+    set((state) => {
+      const activeHist = { ...state.activeSession.clinicalHistory };
+      activeHist.severity = {
+        status: "KNOWN",
+        value: severity,
+        source: "touch",
+        capturedAt: Date.now()
+      };
+      return {
+        activeSession: {
+          ...state.activeSession,
+          clinicalHistory: activeHist
+        },
+        currentPatient: {
+          ...state.currentPatient,
+          severity
+        }
+      };
+    }),
 
   setComplaint: (id, label) =>
     set((state) => ({
@@ -638,8 +721,8 @@ export const useKioskStore = create<KioskState>((set, get) => ({
   toggleComplaint: (id, label) =>
     set((state) => {
       const exists = state.currentPatient.complaintIds.includes(id);
-      let newIds;
-      let newLabels;
+      let newIds: string[];
+      let newLabels: string[];
 
       if (exists) {
         if (state.currentPatient.complaintIds.length > 1) {
@@ -654,7 +737,21 @@ export const useKioskStore = create<KioskState>((set, get) => ({
         newLabels = [...state.currentPatient.complaintLabels, label];
       }
 
+      // Update complaints array in activeSession
+      const updatedComplaints = newIds.map((cId, idx) => ({
+        id: cId,
+        anatomicalRegion: cId,
+        labelHi: newLabels[idx] || cId,
+        labelEn: cId,
+        severity: state.currentPatient.severity,
+        duration: state.currentPatient.duration
+      }));
+
       return {
+        activeSession: {
+          ...state.activeSession,
+          complaints: updatedComplaints
+        },
         currentPatient: {
           ...state.currentPatient,
           complaintId: newIds[0] || id,
@@ -697,60 +794,92 @@ export const useKioskStore = create<KioskState>((set, get) => ({
     })),
 
   setComplaintHistoryDetails: (history, summaryDraft) =>
-    set((state) => ({
-      currentPatient: {
-        ...state.currentPatient,
-        duration: history.duration || state.currentPatient.duration,
-        severity: history.severity ?? state.currentPatient.severity,
-        complaintHistory: {
-          ...state.currentPatient.complaintHistory,
-          onset: history.onset || state.currentPatient.complaintHistory?.onset,
-          character: history.character || state.currentPatient.complaintHistory?.character,
-          radiation: history.radiation || state.currentPatient.complaintHistory?.radiation,
-          associatedSymptoms: history.associatedSymptoms?.length
-            ? history.associatedSymptoms
-            : state.currentPatient.complaintHistory?.associatedSymptoms,
-          aggravatingFactors: history.aggravatingFactors?.length
-            ? history.aggravatingFactors
-            : state.currentPatient.complaintHistory?.aggravatingFactors,
-          relievingFactors: history.relievingFactors?.length
-            ? history.relievingFactors
-            : state.currentPatient.complaintHistory?.relievingFactors,
-          summaryDraft: summaryDraft || state.currentPatient.complaintHistory?.summaryDraft,
+    set((state) => {
+      const activeHist = { ...state.activeSession.clinicalHistory };
+
+      const setFact = <T>(key: string, val?: T) => {
+        if (val !== undefined && val !== null && val !== "" && (!Array.isArray(val) || val.length > 0)) {
+          (activeHist as Record<string, unknown>)[key] = {
+            status: "KNOWN",
+            value: val,
+            source: "voice",
+            capturedAt: Date.now()
+          };
         }
-      }
-    })),
+      };
+
+      setFact("duration", history.duration);
+      setFact("onset", history.onset);
+      setFact("location", history.location);
+      setFact("severity", history.severity);
+      setFact("character", history.character);
+      setFact("radiation", history.radiation);
+      setFact("associatedSymptoms", history.associatedSymptoms);
+      setFact("aggravatingFactors", history.aggravatingFactors);
+      setFact("relievingFactors", history.relievingFactors);
+      setFact("pastMedicalHistory", history.pastMedicalHistory);
+
+      return {
+        activeSession: {
+          ...state.activeSession,
+          clinicalHistory: activeHist
+        },
+        currentPatient: {
+          ...state.currentPatient,
+          duration: history.duration || state.currentPatient.duration,
+          severity: history.severity ?? state.currentPatient.severity,
+          complaintHistory: {
+            ...state.currentPatient.complaintHistory,
+            onset: history.onset || state.currentPatient.complaintHistory?.onset,
+            character: history.character || state.currentPatient.complaintHistory?.character,
+            radiation: history.radiation || state.currentPatient.complaintHistory?.radiation,
+            associatedSymptoms: history.associatedSymptoms?.length
+              ? history.associatedSymptoms
+              : state.currentPatient.complaintHistory?.associatedSymptoms,
+            aggravatingFactors: history.aggravatingFactors?.length
+              ? history.aggravatingFactors
+              : state.currentPatient.complaintHistory?.aggravatingFactors,
+            relievingFactors: history.relievingFactors?.length
+              ? history.relievingFactors
+              : state.currentPatient.complaintHistory?.relievingFactors,
+            summaryDraft: summaryDraft || state.currentPatient.complaintHistory?.summaryDraft,
+          }
+        }
+      };
+    }),
 
   resetPatientSession: () => {
-    const randomId = Math.floor(1000 + Math.random() * 9000);
+    PersistenceService.clearActiveSessionLocal();
+    const newSession = createEmptyPatientSession();
     set({
+      activeSession: newSession,
       currentPatient: {
-        name: `Walk-in Patient #${randomId}`,
-        age: 32,
-        gender: 'M',
-        abhaId: `91-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${randomId}`,
-        mobile: `+91 98${Math.floor(10000000 + Math.random() * 90000000)}`,
-        consultationType: 'modern',
-        complaintId: 'chest_heart_lungs',
-        complaintLabel: 'Chest Pain & Tightness',
-        complaintIds: ['chest_heart_lungs'],
-        complaintLabels: ['Chest Pain & Tightness'],
+        name: "",
+        age: 30,
+        gender: "M",
+        abhaId: "",
+        mobile: "",
+        consultationType: "modern",
+        complaintId: "",
+        complaintLabel: "",
+        complaintIds: [],
+        complaintLabels: [],
         severity: 5,
-        duration: '1 Day',
-        prakriti: 'Pitta-Vata',
+        duration: "Recent",
+        prakriti: "Vata-Pitta",
         ayushAssessment: {},
         scannedDocs: {
           medications: [],
           labValues: []
         },
         complaintHistory: {
-          onset: '',
-          character: '',
-          radiation: '',
+          onset: "",
+          character: "",
+          radiation: "",
           associatedSymptoms: [],
           aggravatingFactors: [],
           relievingFactors: [],
-          summaryDraft: ''
+          summaryDraft: ""
         }
       }
     });
@@ -918,18 +1047,64 @@ export const useKioskStore = create<KioskState>((set, get) => ({
 
   amendRecord: (id, hpi) =>
     set((state) => {
-      const updatedQueue = state.queue.map((p) =>
-        p.id === id ? { ...p, hpiOverride: hpi } : p
-      );
+      const updatedQueue = state.queue.map((p) => {
+        if (p.id !== id) return p;
+        const newLog: AuditLogEntry = {
+          timestamp: Date.now(),
+          author: "Dr. Anand Sharma, MD",
+          field: "History of Present Illness (HPI)",
+          previousValue: p.hpiOverride || "AI Generated Draft",
+          newValue: hpi
+        };
+        return {
+          ...p,
+          hpiOverride: hpi,
+          auditLogs: [...(p.auditLogs || []), newLog]
+        };
+      });
       PersistenceService.saveQueueLocal(updatedQueue);
       return { queue: updatedQueue };
     }),
 
   updatePatientRecord: (id, updates) =>
     set((state) => {
-      const updatedQueue = state.queue.map((p) =>
-        p.id === id ? { ...p, ...updates } : p
-      );
+      const updatedQueue = state.queue.map((p) => {
+        if (p.id !== id) return p;
+        const logs: AuditLogEntry[] = [...(p.auditLogs || [])];
+        const author = "Dr. Anand Sharma, MD";
+        if (updates.hpiOverride !== undefined && updates.hpiOverride !== p.hpiOverride) {
+          logs.push({
+            timestamp: Date.now(),
+            author,
+            field: "History of Present Illness (HPI)",
+            previousValue: p.hpiOverride || "AI Generated Draft",
+            newValue: updates.hpiOverride
+          });
+        }
+        if (updates.complaint?.symptomLabel && updates.complaint.symptomLabel !== p.complaint.symptomLabel) {
+          logs.push({
+            timestamp: Date.now(),
+            author,
+            field: "Chief Complaint",
+            previousValue: p.complaint.symptomLabel,
+            newValue: updates.complaint.symptomLabel
+          });
+        }
+        if (updates.complaint?.severity !== undefined && updates.complaint.severity !== p.complaint.severity) {
+          logs.push({
+            timestamp: Date.now(),
+            author,
+            field: "Symptom Severity",
+            previousValue: `${p.complaint.severity || 5}/10`,
+            newValue: `${updates.complaint.severity}/10`
+          });
+        }
+        return {
+          ...p,
+          ...updates,
+          auditLogs: logs
+        };
+      });
       PersistenceService.saveQueueLocal(updatedQueue);
       return { queue: updatedQueue };
     }),
@@ -938,12 +1113,20 @@ export const useKioskStore = create<KioskState>((set, get) => ({
     set((state) => {
       const updatedQueue = state.queue.map((p) => {
         if (p.id !== id) return p;
+        const newLog: AuditLogEntry = {
+          timestamp: Date.now(),
+          author: doctorName,
+          field: "Clinical Verification",
+          previousValue: p.reviewStatus,
+          newValue: "doctor_verified"
+        };
         return {
           ...p,
           reviewStatus: "doctor_verified" as const,
           verifiedBy: doctorName,
           verifiedAt: Date.now(),
           status: "completed" as const,
+          auditLogs: [...(p.auditLogs || []), newLog],
           clinicalSummary: p.clinicalSummary
             ? {
                 ...p.clinicalSummary,
@@ -963,11 +1146,19 @@ export const useKioskStore = create<KioskState>((set, get) => ({
     set((state) => {
       const updatedQueue = state.queue.map((p) => {
         if (p.id !== id) return p;
+        const newLog: AuditLogEntry = {
+          timestamp: Date.now(),
+          author: "Dr. Anand Sharma, MD",
+          field: "Review Status",
+          previousValue: p.reviewStatus,
+          newValue: `doctor_rejected: ${reason}`
+        };
         return {
           ...p,
           reviewStatus: "doctor_rejected" as const,
           rejectionReason: reason,
           status: "rejected" as const,
+          auditLogs: [...(p.auditLogs || []), newLog],
           clinicalSummary: p.clinicalSummary
             ? {
                 ...p.clinicalSummary,
@@ -985,11 +1176,19 @@ export const useKioskStore = create<KioskState>((set, get) => ({
     set((state) => {
       const updatedQueue = state.queue.map((p) => {
         if (p.id !== id) return p;
+        const newLog: AuditLogEntry = {
+          timestamp: Date.now(),
+          author: "Dr. Anand Sharma, MD",
+          field: "Review Status",
+          previousValue: p.reviewStatus,
+          newValue: `reinterview_requested: ${notes}`
+        };
         return {
           ...p,
           reviewStatus: "reinterview_requested" as const,
           reinterviewNotes: notes,
           status: "reinterview" as const,
+          auditLogs: [...(p.auditLogs || []), newLog]
         };
       });
       PersistenceService.saveQueueLocal(updatedQueue);
@@ -1010,6 +1209,12 @@ export const useKioskStore = create<KioskState>((set, get) => ({
         registeredAt: record.waitSince
       };
       
+      const validation = IntegrationModule.validateSessionForFhir({ patient: patientModel });
+      if (!validation.isValid) {
+        console.error("[ABDM Integration Error] FHIR Validation Failed:", validation.errors);
+        return;
+      }
+
       const summaryModel = record.clinicalSummary || ClinicalSummaryGenerationModule.buildDraftSummary({
         patient: patientModel,
         sessionId: "sess-" + record.id,
@@ -1048,7 +1253,7 @@ export const useKioskStore = create<KioskState>((set, get) => ({
       });
 
       const fhirBundle = IntegrationModule.generateAbdmBundle(patientModel, summaryModel);
-      console.log("[ABDM Integration] Generated HL7 FHIR R4 Bundle:", fhirBundle);
+      console.log("[ABDM / FHIR DEMO SANDBOX] Bundle generated successfully. External submission simulated:", fhirBundle);
     }
 
     set((state) => {
@@ -1059,4 +1264,199 @@ export const useKioskStore = create<KioskState>((set, get) => ({
       return { queue: updatedQueue };
     });
   },
+
+  loadDemoScenario: (scenario) => {
+    PersistenceService.clearActiveSessionLocal();
+    if (scenario === 1) {
+      // DEMO 1 — Normal Patient: Ramesh Kumar (Hindi Abdominal Pain, Voice, Prescription OCR, Doctor Verification)
+      set({
+        language: "hi",
+        preferredLanguage: "hi",
+        voiceLanguage: "hi-IN",
+        activeView: "kiosk",
+        currentPatient: {
+          name: "Ramesh Kumar (Fictional Demo)",
+          age: 45,
+          gender: "M",
+          abhaId: "91-8821-4401-9921",
+          mobile: "+91 98101 22910",
+          consultationType: "modern",
+          complaintId: "stomach_abdomen",
+          complaintLabel: "Stomach Pain & Acid Reflux / पेट में दर्द व एसिडिटी",
+          complaintIds: ["stomach_abdomen"],
+          complaintLabels: ["Stomach Pain & Acid Reflux / पेट में दर्द व एसिडिटी"],
+          severity: 6,
+          duration: "3 Days",
+          prakriti: "Pitta-Vata",
+          ayushAssessment: {},
+          scannedDocs: {
+            medications: [
+              { name: "Metformin HCl", dose: "500mg", frequency: "BD", note: "with meals", confidence: 0.96, source: "ocr" },
+              { name: "Pantoprazole", dose: "40mg", frequency: "OD", note: "empty stomach in morning", confidence: 0.98, source: "ocr" },
+              { name: "Gelusil Antacid", dose: "10ml", frequency: "TDS", note: "after meals", confidence: 0.94, source: "ocr" }
+            ],
+            labValues: [
+              { test: "Fasting Blood Glucose", value: "142 mg/dL", range: "70 – 100 mg/dL", flag: "high", confidence: 0.96 },
+              { test: "Serum Creatinine", value: "0.9 mg/dL", range: "0.6 – 1.2 mg/dL", flag: "normal", confidence: 0.95 }
+            ]
+          },
+          complaintHistory: {
+            onset: "Gradual onset, worsening after spicy meals",
+            character: "Burning epigastric pain with sour regurgitation",
+            radiation: "Localized upper abdomen, retrosternal burning",
+            associatedSymptoms: ["Bloating", "Loss of appetite", "Morning nausea"],
+            aggravatingFactors: ["Spicy food", "Late night meals", "Tea"],
+            relievingFactors: ["Cold milk", "Antacid syrup"],
+            summaryDraft: "45y M presenting with 3-day history of burning epigastric pain and GERD symptoms. Scanned prescription shows Metformin & Pantoprazole. Fasting glucose elevated at 142 mg/dL."
+          }
+        },
+        selectedPatientId: "p-101"
+      });
+    } else if (scenario === 2) {
+      // DEMO 2 — Emergency Priority: Sunita Devi (Chest Pain + Breathlessness + Diaphoresis, Red-Flag Rule)
+      set({
+        language: "en",
+        preferredLanguage: "en",
+        voiceLanguage: "en-IN",
+        activeView: "physician",
+        currentPatient: {
+          name: "Sunita Devi (Fictional Demo)",
+          age: 62,
+          gender: "F",
+          abhaId: "91-4521-9981-4019",
+          mobile: "+91 94120 44812",
+          consultationType: "modern",
+          complaintId: "chest_heart_lungs",
+          complaintLabel: "Chest Pain & Severe Breathlessness",
+          complaintIds: ["chest_heart_lungs"],
+          complaintLabels: ["Chest Pain & Severe Breathlessness"],
+          severity: 8,
+          duration: "2 Hours",
+          prakriti: "Pitta-Vata",
+          ayushAssessment: {},
+          scannedDocs: {
+            medications: [
+              { name: "Amlodipine", dose: "5mg", frequency: "OD", note: "morning", confidence: 0.96, source: "ocr" },
+              { name: "Atorvastatin", dose: "20mg", frequency: "HS", note: "bedtime", confidence: 0.94, source: "ocr" }
+            ],
+            labValues: [
+              { test: "Blood Pressure", value: "168/98 mmHg", range: "120/80 mmHg", flag: "high", confidence: 0.98 }
+            ]
+          },
+          complaintHistory: {
+            onset: "Sudden onset while walking upstairs",
+            character: "Crushing retrosternal tightness with heavy pressure",
+            radiation: "Radiating to left shoulder, inner arm, and jaw",
+            associatedSymptoms: ["Severe cold sweating (Diaphoresis)", "Breathlessness", "Dizziness"],
+            aggravatingFactors: ["Exertion", "Deep inspiration"],
+            relievingFactors: ["Rest (minimal relief)"],
+            summaryDraft: "62y F presenting with acute sudden crushing chest tightness (2 hours), severe diaphoresis, and shortness of breath. Red flag emergency rule triggered."
+          }
+        },
+        selectedPatientId: "p-102"
+      });
+    } else if (scenario === 3) {
+      // DEMO 3 — AYUSH Mode: Arjun Nair (Ayurveda Selected, 12-factor Dashavidha Pariksha, Vaidya Console)
+      set({
+        language: "hi",
+        preferredLanguage: "hi",
+        voiceLanguage: "hi-IN",
+        activeView: "kiosk",
+        currentPatient: {
+          name: "Arjun Nair (Fictional Demo)",
+          age: 38,
+          gender: "M",
+          abhaId: "91-7721-3914-1029",
+          mobile: "+91 98112 39011",
+          consultationType: "ayurveda",
+          complaintId: "stomach_abdomen",
+          complaintLabel: "Amlapitta & Udarashoola / अम्लपित्त व पेट में जलन",
+          complaintIds: ["stomach_abdomen"],
+          complaintLabels: ["Amlapitta & Udarashoola / अम्लपित्त व पेट में जलन"],
+          severity: 5,
+          duration: "4 Days",
+          prakriti: "Pitta-Vata",
+          ayushAssessment: {
+            prakriti: "Pitta-Vata",
+            vikriti: "Pitta-Vata Vriddhi (Amlapitta & Ushnata)",
+            sara: "Madhyama Sara (Moderate tissue quality)",
+            samhanana: "Madhyama (Compact body frame)",
+            pramana: "Anuroopa (Proportionate stature)",
+            satmya: "Madhyama Satmya (Moderate tolerance)",
+            sattva: "Madhyama Sattva (Moderate psychological endurance)",
+            aharaShakti: "Tikshnagni (Strong food intake, rapid burning)",
+            vyayamaShakti: "Madhyama (Medium physical endurance)",
+            vaya: "Madhyama Vaya (38 years, adult stage)",
+            ahara: "Tikshna-Katu rasa pradhana (Spicy/oily foods, tea)",
+            vihara: "Ratri-jagarana (Late sleeping at 1:00 AM)"
+          },
+          scannedDocs: {
+            medications: [
+              { name: "Avipattikar Churna", dose: "3g", frequency: "HS", note: "with warm water", confidence: 0.96, source: "ocr" },
+              { name: "Sutshekhar Ras", dose: "125mg", frequency: "BD", note: "with honey", confidence: 0.94, source: "ocr" },
+              { name: "Kamdudha Ras", dose: "250mg", frequency: "BD", note: "before meals", confidence: 0.95, source: "ocr" }
+            ],
+            labValues: [
+              { test: "Serum Bilirubin", value: "1.1 mg/dL", range: "0.2 – 1.2 mg/dL", flag: "normal", confidence: 0.95 },
+              { test: "SGPT/ALT", value: "34 U/L", range: "7 – 56 U/L", flag: "normal", confidence: 0.96 }
+            ]
+          },
+          complaintHistory: {
+            onset: "Gradual onset after irregular meal timings",
+            character: "Epigastric burning sensation (Vidaha) & sour belching",
+            radiation: "Hridaya-pradesha (retrosternal region)",
+            associatedSymptoms: ["Aruchi (Anorexia)", "Tripti (Early satiety)"],
+            aggravatingFactors: ["Katu-Amla Ahara (Spicy/sour food)", "Late night sleep"],
+            relievingFactors: ["Shita-dugdha (Cold milk)"],
+            summaryDraft: "38y M presenting for Ayurvedic OPD consultation. Dashavidha Pariksha completed: Pitta-Vata Prakriti with Pitta Vriddhi (Amlapitta). Scanned herbal prescription included."
+          }
+        },
+        selectedPatientId: "p-101"
+      });
+    }
+  },
+
+  resetDemoEnvironment: () => {
+    localStorage.removeItem("medikiosk_active_queue_v1");
+    PersistenceService.clearActiveSessionLocal();
+    const newSession = createEmptyPatientSession();
+    set({
+      activeView: "kiosk",
+      language: "hi",
+      preferredLanguage: "hi",
+      voiceLanguage: "hi-IN",
+      queue: SEED_QUEUE,
+      selectedPatientId: "p-101",
+      activeSession: newSession,
+      currentPatient: {
+        name: "",
+        age: 30,
+        gender: "M",
+        abhaId: "",
+        mobile: "",
+        consultationType: "modern",
+        complaintId: "",
+        complaintLabel: "",
+        complaintIds: [],
+        complaintLabels: [],
+        severity: 5,
+        duration: "Recent",
+        prakriti: "Vata-Pitta",
+        ayushAssessment: {},
+        scannedDocs: {
+          medications: [],
+          labValues: []
+        },
+        complaintHistory: {
+          onset: "",
+          character: "",
+          radiation: "",
+          associatedSymptoms: [],
+          aggravatingFactors: [],
+          relievingFactors: [],
+          summaryDraft: ""
+        }
+      }
+    });
+  }
 }));

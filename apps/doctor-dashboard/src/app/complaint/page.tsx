@@ -90,9 +90,9 @@ const BODY_REGIONS = [
 
 export default function ChiefComplaintScreen() {
   const router = useRouter();
-  const { currentPatient, toggleComplaint, setConsultationType, setComplaintHistoryDetails } = useKioskStore();
+  const { currentPatient, toggleComplaint, setConsultationType, setComplaintHistoryDetails, setSeverity } = useKioskStore();
   const [selectedIds, setSelectedIds] = useState<string[]>(currentPatient.complaintIds || ["stomach_abdomen"]);
-  const [severity, setSeverity] = useState<number>(currentPatient.severity || 6);
+  const severity = currentPatient.severity ?? 6;
   const [isListening, setIsListening] = useState<boolean>(false);
 
   const consultationType: ConsultationType = currentPatient.consultationType || "ayurveda";
@@ -116,15 +116,12 @@ export default function ChiefComplaintScreen() {
     if (!isListening) {
       setIsListening(true);
       setTimeout(() => {
-        if (!selectedIds.includes("head_brain")) {
-          handleToggle("head_brain", "सिर / मस्तिष्क (Head & Brain)");
+        // Safe voice intake: only select if not already selected, never fabricate unrelated body regions
+        if (!selectedIds.includes("stomach_abdomen")) {
+          handleToggle("stomach_abdomen", "पेट / पाचन तंत्र (Stomach & Digestion)");
         }
-        if (!selectedIds.includes("chest_heart_lungs")) {
-          handleToggle("chest_heart_lungs", "छाती / हृदय (Chest, Heart)");
-        }
-        setSeverity(7);
         setIsListening(false);
-      }, 2200);
+      }, 1500);
     } else {
       setIsListening(false);
     }
@@ -291,18 +288,23 @@ export default function ChiefComplaintScreen() {
           <div className="flex justify-between items-center">
             <div>
               <h3 className="font-bold text-text text-base sm:text-lg">
-                {consultationType === "ayurveda" ? "वेदना की तीव्रता (Pain / Discomfort Severity)" : "Dard Ki Tibrata (Severity)"}
+                {consultationType === "ayurveda" ? "वेदना की तीव्रता (Pain / Discomfort Severity)" : "Dard Ki Tibrata (Severity Scale)"}
               </h3>
               <p className="text-xs text-text-muted">
-                Rate your symptom intensity on the 0-10 scale
+                Rate intensity from 0 (No pain) to 10 (Worst imaginable pain)
               </p>
             </div>
-            <span className={cn(
-              "text-base sm:text-lg font-bold font-mono px-3 py-1 rounded-xl shadow-xs",
-              severity >= 7 ? "bg-alert/15 text-alert" : severity >= 4 ? "bg-warning-light text-warning" : "bg-teal-light text-teal"
-            )}>
-              {severity} / 10
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-text-muted hidden sm:inline">
+                {severity <= 2 ? "😊 Mild" : severity <= 6 ? "😐 Moderate" : "😫 Severe"}
+              </span>
+              <span className={cn(
+                "text-base sm:text-lg font-bold font-mono px-3 py-1 rounded-xl shadow-xs",
+                severity >= 7 ? "bg-alert/15 text-alert" : severity >= 4 ? "bg-warning-light text-warning" : "bg-teal-light text-teal"
+              )}>
+                {severity} / 10
+              </span>
+            </div>
           </div>
 
           <div>
@@ -312,14 +314,24 @@ export default function ChiefComplaintScreen() {
               max="10" 
               step="1"
               value={severity}
-              onChange={(e) => setSeverity(Number(e.target.value))}
-              className="w-full h-3.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setSeverity(val);
+              }}
+              className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+              aria-label="Symptom severity slider"
             />
 
             <div className="flex justify-between text-xs text-text-muted mt-2 font-medium">
-              <span className="text-teal font-semibold">0: Bilkul Nahi (None)</span>
-              <span className="text-warning font-semibold">5: Madhyam (Moderate)</span>
-              <span className="text-alert font-semibold">10: Asahaniya (Severe)</span>
+              <span className="text-teal font-bold flex items-center gap-1">
+                😊 0–3: Thoda Sa (Mild / Slight)
+              </span>
+              <span className="text-warning font-bold flex items-center gap-1">
+                😐 4–6: Madhyam (Moderate / Bothersome)
+              </span>
+              <span className="text-alert font-bold flex items-center gap-1">
+                😫 7–10: Bahut Tej (Severe / Unbearable)
+              </span>
             </div>
           </div>
         </div>
@@ -344,16 +356,16 @@ export default function ChiefComplaintScreen() {
             <button 
               onClick={handleMicToggle}
               className={cn(
-                "w-full flex items-center justify-center gap-3 border-2 rounded-2xl py-4 px-6 animate-press transition-all",
+                "w-full flex items-center justify-center gap-3 border-2 rounded-2xl py-3.5 px-6 transition-all",
                 isListening 
-                  ? "bg-alert/10 border-alert text-alert ring-4 ring-alert/20 animate-pulse"
-                  : "bg-surface-card border-primary/30 text-primary hover:bg-primary-light"
+                  ? "bg-rose-50 border-rose-500 text-rose-800 ring-2 ring-rose-200"
+                  : "bg-surface-card border-primary/20 text-primary hover:bg-primary-light/50"
               )}
             >
-              <div className="w-6 h-6">
+              <div className="w-5 h-5">
                 <MicIcon />
               </div>
-              <span className="font-bold text-sm sm:text-base">
+              <span className="font-bold text-xs sm:text-sm">
                 {isListening 
                   ? "Sun rahe hain... (Listening...)" 
                   : "🎙️ Bolkar Lakshan Batayein (Tap to Speak Symptoms)"}

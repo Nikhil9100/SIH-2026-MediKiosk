@@ -55,7 +55,7 @@ export const chestPainPathway: ComplaintPathway = {
       promptEn: "Are you experiencing any other symptoms with the chest pain?",
       audioPromptText: "Kya iske saath koi anya lakshan hain?",
       choices: [
-        { id: "assoc_dyspnea_sweats", labelHi: "सांस फूलना और ठंडा पसीना", labelEn: "Shortness of breath & cold sweats", extractedValue: { associatedSymptoms: ["Dyspnea (breathlessness)", "Diaphoresis (cold sweats)"] }, isRedFlagTrigger: true, redFlagReason: "Chest pain with acute dyspnea and cold sweats warrants immediate emergency triage" },
+        { id: "assoc_dyspnea_sweats", labelHi: "सांस फूलना और ठंडा पसीना", labelEn: "Shortness of breath & cold sweats", extractedValue: { associatedSymptoms: ["Shortness of breath", "Cold sweats"] }, isRedFlagTrigger: true, redFlagReason: "Chest pain with acute dyspnea and cold sweats warrants immediate emergency triage" },
         { id: "assoc_nausea_acidity", labelHi: "जी मिचलाना या खट्टी डकारें", labelEn: "Nausea or sour belching", extractedValue: { associatedSymptoms: ["Nausea", "Dyspepsia"] } },
         { id: "assoc_none", labelHi: "इनमें से कोई नहीं", labelEn: "None of these", extractedValue: { associatedSymptoms: ["None reported"] } }
       ]
@@ -74,16 +74,29 @@ export const chestPainPathway: ComplaintPathway = {
     }
   },
   getNextQuestionId: (history, currentId) => {
-    if (currentId === "cp_duration") return "cp_character";
-    if (currentId === "cp_character") return "cp_radiation";
-    if (currentId === "cp_radiation") return "cp_associated";
-    if (currentId === "cp_associated") return "cp_history";
+    const questionSequence = ["cp_duration", "cp_character", "cp_radiation", "cp_associated", "cp_history"];
+    const fieldMap: Record<string, keyof typeof history> = {
+      cp_duration: "duration",
+      cp_character: "character",
+      cp_radiation: "radiation",
+      cp_associated: "associatedSymptoms",
+      cp_history: "pastMedicalHistory"
+    };
+
+    const currentIndex = questionSequence.indexOf(currentId);
+    for (let i = currentIndex + 1; i < questionSequence.length; i++) {
+      const qId = questionSequence[i];
+      const field = fieldMap[qId];
+      const val = history[field];
+      const isMissing = val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0);
+      if (isMissing) return qId;
+    }
     return null;
   },
   checkRedFlags: (history) => {
     const flags: Array<{ condition: string; rationale: string; severity: "emergency_code_red" | "urgent_amber" }> = [];
     const isRadiatingArmJaw = history.radiation?.includes("left arm");
-    const hasColdSweatsOrDyspnea = history.associatedSymptoms?.some(s => s.toLowerCase().includes("breathlessness") || s.toLowerCase().includes("cold sweat"));
+    const hasColdSweatsOrDyspnea = history.associatedSymptoms?.some(s => s.toLowerCase().includes("breath") || s.toLowerCase().includes("sweat") || s.toLowerCase().includes("dyspnea"));
     const isSevere = (history.severity || 0) >= 7;
 
     if (isRadiatingArmJaw || hasColdSweatsOrDyspnea || (isSevere && history.character?.includes("pressure"))) {
@@ -130,7 +143,7 @@ export const abdominalPainPathway: ComplaintPathway = {
       audioPromptText: "Yeh dard kitne samay se ho raha hai?",
       choices: [
         { id: "dur_acute_hours", labelHi: "आज अचानक शुरू हुआ (कुछ घंटे)", labelEn: "Started suddenly today (few hours)", extractedValue: { duration: "<12 hours", onset: "Acute sudden" } },
-        { id: "dur_days", labelHi: "पिछले 2-4 दिनों से", labelEn: "Past 2-4 days", extractedValue: { duration: "2-4 days", onset: "Subacute" } },
+        { id: "dur_days", labelHi: "पिछले 2-4 दिनों से", labelEn: "Past 2-4 days (e.g. 3 days)", extractedValue: { duration: "3 days", onset: "Subacute" } },
         { id: "dur_chronic", labelHi: "महीनों से बीच-बीच में होता है", labelEn: "Chronic / Intermittent for months", extractedValue: { duration: "Chronic recurring", onset: "Intermittent" } }
       ]
     },
@@ -161,9 +174,22 @@ export const abdominalPainPathway: ComplaintPathway = {
     }
   },
   getNextQuestionId: (history, currentId) => {
-    if (currentId === "ap_location") return "ap_duration";
-    if (currentId === "ap_duration") return "ap_food_relation";
-    if (currentId === "ap_food_relation") return "ap_associated";
+    const questionSequence = ["ap_location", "ap_duration", "ap_food_relation", "ap_associated"];
+    const fieldMap: Record<string, keyof typeof history> = {
+      ap_location: "location",
+      ap_duration: "duration",
+      ap_food_relation: "aggravatingFactors",
+      ap_associated: "associatedSymptoms"
+    };
+
+    const currentIndex = questionSequence.indexOf(currentId);
+    for (let i = currentIndex + 1; i < questionSequence.length; i++) {
+      const qId = questionSequence[i];
+      const field = fieldMap[qId];
+      const val = history[field];
+      const isMissing = val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0);
+      if (isMissing) return qId;
+    }
     return null;
   },
   checkRedFlags: (history) => {
@@ -236,8 +262,21 @@ export const headachePathway: ComplaintPathway = {
     }
   },
   getNextQuestionId: (history, currentId) => {
-    if (currentId === "ha_onset") return "ha_character";
-    if (currentId === "ha_character") return "ha_associated";
+    const questionSequence = ["ha_onset", "ha_character", "ha_associated"];
+    const fieldMap: Record<string, keyof typeof history> = {
+      ha_onset: "onset",
+      ha_character: "character",
+      ha_associated: "associatedSymptoms"
+    };
+
+    const currentIndex = questionSequence.indexOf(currentId);
+    for (let i = currentIndex + 1; i < questionSequence.length; i++) {
+      const qId = questionSequence[i];
+      const field = fieldMap[qId];
+      const val = history[field];
+      const isMissing = val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0);
+      if (isMissing) return qId;
+    }
     return null;
   },
   checkRedFlags: (history) => {
@@ -311,8 +350,21 @@ export const feverPathway: ComplaintPathway = {
     }
   },
   getNextQuestionId: (history, currentId) => {
-    if (currentId === "fv_duration") return "fv_pattern";
-    if (currentId === "fv_pattern") return "fv_associated";
+    const questionSequence = ["fv_duration", "fv_pattern", "fv_associated"];
+    const fieldMap: Record<string, keyof typeof history> = {
+      fv_duration: "duration",
+      fv_pattern: "character",
+      fv_associated: "associatedSymptoms"
+    };
+
+    const currentIndex = questionSequence.indexOf(currentId);
+    for (let i = currentIndex + 1; i < questionSequence.length; i++) {
+      const qId = questionSequence[i];
+      const field = fieldMap[qId];
+      const val = history[field];
+      const isMissing = val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0);
+      if (isMissing) return qId;
+    }
     return null;
   },
   checkRedFlags: (history) => {
@@ -378,8 +430,21 @@ export const coughPathway: ComplaintPathway = {
     }
   },
   getNextQuestionId: (history, currentId) => {
-    if (currentId === "cg_type") return "cg_duration";
-    if (currentId === "cg_duration") return "cg_associated";
+    const questionSequence = ["cg_type", "cg_duration", "cg_associated"];
+    const fieldMap: Record<string, keyof typeof history> = {
+      cg_type: "character",
+      cg_duration: "duration",
+      cg_associated: "associatedSymptoms"
+    };
+
+    const currentIndex = questionSequence.indexOf(currentId);
+    for (let i = currentIndex + 1; i < questionSequence.length; i++) {
+      const qId = questionSequence[i];
+      const field = fieldMap[qId];
+      const val = history[field];
+      const isMissing = val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0);
+      if (isMissing) return qId;
+    }
     return null;
   },
   checkRedFlags: (history) => {
@@ -452,8 +517,21 @@ export const backPainPathway: ComplaintPathway = {
     }
   },
   getNextQuestionId: (history, currentId) => {
-    if (currentId === "bp_location") return "bp_radiation";
-    if (currentId === "bp_radiation") return "bp_redflags";
+    const questionSequence = ["bp_location", "bp_radiation", "bp_redflags"];
+    const fieldMap: Record<string, keyof typeof history> = {
+      bp_location: "location",
+      bp_radiation: "radiation",
+      bp_redflags: "associatedSymptoms"
+    };
+
+    const currentIndex = questionSequence.indexOf(currentId);
+    for (let i = currentIndex + 1; i < questionSequence.length; i++) {
+      const qId = questionSequence[i];
+      const field = fieldMap[qId];
+      const val = history[field];
+      const isMissing = val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0);
+      if (isMissing) return qId;
+    }
     return null;
   },
   checkRedFlags: (history) => {

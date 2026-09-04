@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useKioskStore, Medication, LabValue } from "@/store/kioskStore";
+import { DocumentOcrService, DocumentType } from "@/services/ocr/documentOcrService";
 import { 
   FileScan, 
   Pill, 
@@ -65,18 +66,27 @@ export default function DocumentStep() {
   const [editingMedIdx, setEditingMedIdx] = useState<number | null>(null);
   const [editMedForm, setEditMedForm] = useState<Partial<Medication>>({});
 
+  const [docType, setDocType] = useState<DocumentType>("prescription");
+  const [currentPageCount, setCurrentPageCount] = useState<number>(0);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
+  const [hasPhysicalDoc, setHasPhysicalDoc] = useState<boolean>(true);
+
   const medications = currentPatient.scannedDocs?.medications || [];
   const labValues = currentPatient.scannedDocs?.labValues || [];
 
-  const startScan = () => {
+  const startScan = (newDocType?: DocumentType, forceDemoMode?: boolean) => {
+    const activeDocType = newDocType || docType;
+    const activeDemo = forceDemoMode !== undefined ? forceDemoMode : isDemoMode;
+    
     setScanStatus('scanning');
     setProgress(0);
     setMessageIdx(0);
     setIsAddingMed(false);
     setIsAddingLab(false);
 
-    const duration = 2200;
-    const interval = 50;
+    const nextPageNum = currentPageCount + 1;
+    const duration = 1800;
+    const interval = 40;
     let elapsed = 0;
 
     const timer = setInterval(() => {
@@ -88,12 +98,45 @@ export default function DocumentStep() {
       if (elapsed >= duration) {
         clearInterval(timer);
         setScanStatus('done');
-        // Ensure medications and labs are loaded if currently empty
-        if (medications.length === 0 && labValues.length === 0) {
-          setScannedDocuments(DEFAULT_SAMPLE_MEDS, DEFAULT_SAMPLE_LABS);
-        }
+        setCurrentPageCount(nextPageNum);
+
+        const ocrResult = DocumentOcrService.processDocument({
+          documentType: activeDocType,
+          hasPhysicalDocument: hasPhysicalDoc,
+          demoMode: activeDemo,
+          pagesToScan: nextPageNum
+        });
+
+        // Accumulate newly extracted entities into active session store
+        const mappedMeds: Medication[] = ocrResult.accumulatedMedications.map((m) => ({
+          id: m.id,
+          name: m.name,
+          dose: m.dosage || "As directed",
+          frequency: m.frequency || "OD",
+          note: m.note || "post-meal",
+          confidence: m.confidence,
+          source: m.confidence < 1.0 ? 'ocr' : 'reported'
+        }));
+
+        const mappedLabs: LabValue[] = ocrResult.accumulatedLabValues.map((l) => ({
+          id: l.id,
+          test: l.name,
+          value: l.value || "Normal",
+          range: l.referenceRange || "Normal",
+          flag: (l.abnormalFlag === "high" || l.abnormalFlag === "low") ? l.abnormalFlag : "normal",
+          confidence: l.confidence
+        }));
+
+        setScannedDocuments(mappedMeds, mappedLabs);
       }
     }, interval);
+  };
+
+  const handleNoDocumentProvided = () => {
+    setHasPhysicalDoc(false);
+    setIsDemoMode(false);
+    setScanStatus('idle');
+    setScannedDocuments([], []);
   };
 
   const simulateOcrFallback = () => {
@@ -167,7 +210,7 @@ export default function DocumentStep() {
       {/* Progress Bar */}
       <div className="w-full max-w-[1024px] px-4 sm:px-8 pt-6">
         <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-teal to-teal-bright w-[75%] transition-all duration-500 ease-out" />
+          <div className="h-full bg-teal w-[75%] transition-all duration-500 ease-out" />
         </div>
         <div className="mt-2 text-text-muted text-xs sm:text-sm font-medium flex justify-between items-center">
           <span>चरण 3 / 4 · पर्ची व लैब रिपोर्ट (Step 3 of 4 · Documents & Labs)</span>
@@ -202,6 +245,40 @@ export default function DocumentStep() {
           </h2>
         </div>
 
+        {/* Document Category Selection */}
+        <div className="w-full grid grid-cols-3 gap-2 bg-surface p-1.5 rounded-2xl border border-border text-xs font-bold">
+          <button
+            onClick={() => setDocType("prescription")}
+            className={cn(
+              "py-2 px-3 rounded-xl flex items-center justify-center gap-2 transition-all",
+              docType === "prescription" ? "bg-primary text-white shadow-sm font-black" : "text-text-muted hover:text-text"
+            )}
+          >
+            <Pill className="w-4 h-4" />
+            <span>Prescription</span>
+          </button>
+          <button
+            onClick={() => setDocType("lab_report")}
+            className={cn(
+              "py-2 px-3 rounded-xl flex items-center justify-center gap-2 transition-all",
+              docType === "lab_report" ? "bg-teal text-white shadow-sm font-black" : "text-text-muted hover:text-text"
+            )}
+          >
+            <FlaskConical className="w-4 h-4" />
+            <span>Lab Report</span>
+          </button>
+          <button
+            onClick={() => setDocType("discharge_summary")}
+            className={cn(
+              "py-2 px-3 rounded-xl flex items-center justify-center gap-2 transition-all",
+              docType === "discharge_summary" ? "bg-warning text-white shadow-sm font-black" : "text-text-muted hover:text-text"
+            )}
+          >
+            <FileScan className="w-4 h-4" />
+            <span>Discharge Summary</span>
+          </button>
+        </div>
+
         {/* OCR SCANNER IDLE STATE */}
         {scanStatus === 'idle' && (
           <div className="w-full bg-surface-card border-2 border-dashed border-primary/30 rounded-3xl p-6 sm:p-10 flex flex-col items-center text-center shadow-sm space-y-4">
@@ -211,18 +288,43 @@ export default function DocumentStep() {
             <div>
               <h3 className="text-xl sm:text-2xl font-bold text-text mb-1">Place document under kiosk scanner</h3>
               <p className="text-text-muted text-sm sm:text-base max-w-md">
-                Hold the prescription flat or upload your previous digital medical summary
+                Scanning category: <strong className="text-primary capitalize">{docType.replace("_", " ")}</strong>
+                {currentPageCount > 0 && ` (${currentPageCount} page(s) scanned)`}
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center gap-3 pt-2 w-full max-w-md">
               <button
-                onClick={startScan}
+                onClick={() => startScan(docType, isDemoMode)}
                 className="w-full bg-primary text-white font-bold text-base sm:text-lg py-4 rounded-2xl shadow-md hover:bg-primary-dark animate-press flex items-center justify-center gap-2.5 transition-all"
               >
                 <Camera className="w-5 h-5" />
-                Start Scanner (स्कैन शुरू करें)
+                {currentPageCount > 0 ? `Scan Page ${currentPageCount + 1}` : "Start Scanner (स्कैन शुरू करें)"}
               </button>
+
+              <label className="w-full bg-surface border-2 border-primary/30 text-primary hover:bg-primary/5 font-bold text-xs sm:text-sm py-3.5 rounded-2xl animate-press flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                <FileScan className="w-4 h-4" />
+                Upload File (Max 10MB)
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/jpg,application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 10 * 1024 * 1024) {
+                      alert("File size exceeds 10MB limit. Please select a smaller file.");
+                      return;
+                    }
+                    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "application/pdf"];
+                    if (!allowedTypes.includes(file.type)) {
+                      alert("Invalid file format. Please upload JPG, PNG, or PDF.");
+                      return;
+                    }
+                    startScan(docType, true);
+                  }}
+                />
+              </label>
 
               <button
                 onClick={simulateOcrFallback}
@@ -230,6 +332,15 @@ export default function DocumentStep() {
               >
                 <AlertTriangle className="w-4 h-4 text-warning" />
                 Simulate OCR Failure (Fallback Demo)
+              </button>
+            </div>
+
+            <div className="pt-2 flex items-center gap-4 text-xs">
+              <button 
+                onClick={handleNoDocumentProvided}
+                className="text-text-muted hover:underline"
+              >
+                No document supplied (Clear OCR state)
               </button>
             </div>
           </div>
@@ -276,7 +387,7 @@ export default function DocumentStep() {
 
             <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
               <button
-                onClick={startScan}
+                onClick={() => startScan(docType, isDemoMode)}
                 className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 animate-press transition-colors"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> Re-scan
@@ -299,16 +410,34 @@ export default function DocumentStep() {
           <div className="w-full bg-success-light border border-success/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-success">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-6 h-6 shrink-0 text-success" />
-              <div className="text-sm font-semibold">
-                Document analyzed successfully! Extracted {medications.length} active prescriptions and {labValues.length} laboratory biomarkers.
+              <div>
+                <div className="text-sm font-bold flex items-center gap-2">
+                  <span>Document analyzed successfully! ({currentPageCount} Page(s) Scanned)</span>
+                  {isDemoMode && (
+                    <span className="text-[10px] bg-teal text-white font-black px-2 py-0.5 rounded font-mono">
+                      SIMULATED DEMO OCR
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-text-muted mt-0.5">
+                  Accumulated {medications.length} active prescriptions and {labValues.length} lab biomarkers.
+                </p>
               </div>
             </div>
-            <button
-              onClick={simulateOcrFallback}
-              className="text-xs text-warning hover:underline font-semibold flex items-center gap-1 shrink-0 self-end sm:self-auto"
-            >
-              <AlertTriangle className="w-3.5 h-3.5" /> Test Fallback Flow
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => startScan(docType, isDemoMode)}
+                className="text-xs bg-teal text-white font-bold px-3 py-2 rounded-xl hover:bg-teal-bright flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" /> Scan Page {currentPageCount + 1}
+              </button>
+              <button
+                onClick={simulateOcrFallback}
+                className="text-xs text-warning hover:underline font-semibold flex items-center gap-1 shrink-0 self-end sm:self-auto"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" /> Test Fallback Flow
+              </button>
+            </div>
           </div>
         )}
 
@@ -605,7 +734,7 @@ export default function DocumentStep() {
             {/* Rescan button */}
             <div className="flex justify-center gap-4">
               <button
-                onClick={startScan}
+                onClick={() => startScan(docType, isDemoMode)}
                 className="text-primary text-xs sm:text-sm font-semibold flex items-center gap-2 hover:underline"
               >
                 <RefreshCw className="w-4 h-4" /> Scan Another Page (अन्य दस्तावेज़ स्कैन करें)
