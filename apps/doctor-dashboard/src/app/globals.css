@@ -2,26 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    background-color: theme('colors.surface.DEFAULT');
+    color: theme('colors.text.DEFAULT');
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
+/* Custom Utilities for smooth animations without bounce */
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .animate-press {
+    transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+  }
+  .animate-press:active {
+    transform: scale(0.98);
+    box-shadow: theme('boxShadow.inner');
   }
 }
