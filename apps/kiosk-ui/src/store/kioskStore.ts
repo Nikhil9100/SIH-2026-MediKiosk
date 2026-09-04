@@ -58,6 +58,8 @@ interface KioskState {
     mobile: string;
     complaintId: string;
     complaintLabel: string;
+    complaintIds: string[];
+    complaintLabels: string[];
     severity: number;
     duration: string;
     prakriti: string;
@@ -75,6 +77,7 @@ interface KioskState {
   setView: (view: 'kiosk' | 'physician') => void;
   setLanguage: (lang: string) => void;
   setComplaint: (id: string, label: string) => void;
+  toggleComplaint: (id: string, label: string) => void;
   setAyushData: (prakriti: string) => void;
   setScannedDocuments: (meds: Medication[], labs: LabValue[]) => void;
   completeIntakeAndEnqueue: () => number;
@@ -164,6 +167,8 @@ export const useKioskStore = create<KioskState>((set, get) => ({
     mobile: '+91 98112 39011',
     complaintId: 'chest_pain',
     complaintLabel: 'Chest Pain / छाती में दर्द',
+    complaintIds: ['chest_pain'],
+    complaintLabels: ['Chest Pain / छाती में दर्द'],
     severity: 7,
     duration: '2 Days',
     prakriti: 'Vata-Kapha',
@@ -188,8 +193,45 @@ export const useKioskStore = create<KioskState>((set, get) => ({
   
   setComplaint: (id, label) =>
     set((state) => ({
-      currentPatient: { ...state.currentPatient, complaintId: id, complaintLabel: label },
+      currentPatient: {
+        ...state.currentPatient,
+        complaintId: id,
+        complaintLabel: label,
+        complaintIds: [id],
+        complaintLabels: [label],
+      },
     })),
+
+  toggleComplaint: (id, label) =>
+    set((state) => {
+      const exists = state.currentPatient.complaintIds.includes(id);
+      let newIds: string[];
+      let newLabels: string[];
+
+      if (exists) {
+        // Remove if more than 1 selected, or keep at least 1
+        if (state.currentPatient.complaintIds.length > 1) {
+          newIds = state.currentPatient.complaintIds.filter((item) => item !== id);
+          newLabels = state.currentPatient.complaintLabels.filter((item) => item !== label);
+        } else {
+          newIds = state.currentPatient.complaintIds;
+          newLabels = state.currentPatient.complaintLabels;
+        }
+      } else {
+        newIds = [...state.currentPatient.complaintIds, id];
+        newLabels = [...state.currentPatient.complaintLabels, label];
+      }
+
+      return {
+        currentPatient: {
+          ...state.currentPatient,
+          complaintId: newIds[0] || id,
+          complaintLabel: newLabels.join(', '),
+          complaintIds: newIds,
+          complaintLabels: newLabels,
+        },
+      };
+    }),
 
   setAyushData: (prakriti) =>
     set((state) => ({

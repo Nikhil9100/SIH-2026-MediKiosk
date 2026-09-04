@@ -98,9 +98,9 @@ export default function SummaryStep() {
               <span>ABHA ID:</span>
               <span className="font-mono text-primary font-semibold">{currentPatient.abhaId}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Primary Complaint:</span>
-              <span className="font-semibold text-text">{currentPatient.complaintLabel}</span>
+            <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+              <span className="shrink-0 font-medium">Selected Pain Points:</span>
+              <span className="font-semibold text-text text-left sm:text-right">{currentPatient.complaintLabel}</span>
             </div>
             <div className="flex justify-between">
               <span>Ayurvedic Assessment:</span>
