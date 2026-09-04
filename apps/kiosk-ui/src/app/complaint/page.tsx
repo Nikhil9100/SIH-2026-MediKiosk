@@ -18,7 +18,8 @@ import { ConsultationType } from "@/models";
 import { cn } from "@/lib/utils";
 import AdaptiveClinicalInquiry from "@/components/AdaptiveClinicalInquiry";
 import AyurvedaConsultationFlow from "@/components/AyurvedaConsultationFlow";
-import { Check, Volume2, X, Stethoscope, Leaf } from "lucide-react";
+import InteractiveBodyMap from "@/components/InteractiveBodyMap";
+import { Volume2, X, Stethoscope, Leaf } from "lucide-react";
 
 // 8 Anatomically Accurate Body Regions with clinical descriptions
 const BODY_REGIONS = [
@@ -90,7 +91,7 @@ const BODY_REGIONS = [
 
 export default function ChiefComplaintScreen() {
   const router = useRouter();
-  const { currentPatient, toggleComplaint, setConsultationType, setComplaintHistoryDetails, setSeverity } = useKioskStore();
+  const { currentPatient, toggleComplaint, setConsultationType, setComplaintHistoryDetails, setSeverity, language } = useKioskStore();
   const [selectedIds, setSelectedIds] = useState<string[]>(currentPatient.complaintIds || ["stomach_abdomen"]);
   const severity = currentPatient.severity ?? 6;
   const [isListening, setIsListening] = useState<boolean>(false);
@@ -242,46 +243,14 @@ export default function ChiefComplaintScreen() {
           </div>
         )}
 
-        {/* Anatomical Body Regions Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
-          {BODY_REGIONS.map((region) => {
-            const isSelected = selectedIds.includes(region.id);
-            const IconComponent = region.icon;
-
-            return (
-              <button
-                key={region.id}
-                onClick={() => handleToggle(region.id, `${region.labelHi} (${region.labelEn})`)}
-                className={cn(
-                  "p-4 sm:p-5 rounded-2xl border-2 text-left flex flex-col justify-between transition-all duration-200 animate-press bg-surface-card relative group shadow-xs hover:shadow-md",
-                  isSelected
-                    ? "border-primary bg-primary-light/50 ring-2 ring-primary/20 scale-[1.02]"
-                    : "border-border hover:border-primary/40"
-                )}
-              >
-                <div className="flex items-start justify-between w-full mb-3">
-                  <div className={cn(
-                    "p-2.5 rounded-xl transition-colors",
-                    isSelected ? "bg-primary text-white" : "bg-primary/10 text-primary group-hover:bg-primary/20"
-                  )}>
-                    <IconComponent className="w-6 h-6 sm:w-7 sm:h-7" />
-                  </div>
-                  {isSelected && (
-                    <span className="w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold shadow-xs">
-                      <Check className="w-3.5 h-3.5" />
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="font-bold text-text text-sm sm:text-base leading-snug">{region.labelHi}</h3>
-                  <p className="text-xs text-primary font-medium mt-0.5">{region.labelEn}</p>
-                  <p className="text-[11px] text-text-muted mt-1 leading-tight line-clamp-1">{region.subtext}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+        {/* Interactive Human Body Map Component */}
+        <InteractiveBodyMap 
+          selectedRegionId={selectedIds[0] || "upper_abdomen"}
+          language={language}
+          onSelectRegion={(id, nameHi, nameEn) => {
+            handleToggle(id, `${nameHi} (${nameEn})`);
+          }}
+        />
 
         {/* Severity Slider (Present in both modes) */}
         <div className="w-full bg-surface-card border border-border rounded-2xl p-5 sm:p-6 shadow-sm space-y-3">

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useKioskStore } from "@/store/kioskStore";
 import { Siren, Activity, User, Stethoscope, BarChart3, ShieldAlert, X, PhoneCall, Eye, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
+import CompactLanguageHeaderControl from "./CompactLanguageHeaderControl";
 
 export default function TopBar() {
   const { activeView, setView, queue, easyView, highContrast, toggleEasyView, toggleHighContrast } = useKioskStore();
@@ -84,6 +85,9 @@ export default function TopBar() {
 
         {/* System Status Indicators & Accessibility Controls */}
         <div className="flex items-center gap-2">
+          {/* Compact Language Header Selector with English Fallback */}
+          <CompactLanguageHeaderControl />
+
           {/* Easy View Toggle */}
           <button
             onClick={toggleEasyView}
