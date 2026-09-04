@@ -17,7 +17,7 @@ import {
 
 export default function SummaryStep() {
   const router = useRouter();
-  const { currentPatient, completeIntakeAndEnqueue, setView } = useKioskStore();
+  const { currentPatient, completeIntakeAndEnqueue, setView, resetPatientSession } = useKioskStore();
   const [tokenNumber, setTokenNumber] = useState<number>(43);
   const hasEnqueued = useRef<boolean>(false);
 
@@ -278,7 +278,10 @@ export default function SummaryStep() {
       {/* Start Next Patient Button */}
       <div className="fixed bottom-0 left-0 w-full bg-surface/90 backdrop-blur-sm p-4 sm:p-5 flex justify-center border-t border-border z-40">
         <button
-          onClick={() => router.push("/language")}
+          onClick={() => {
+            resetPatientSession();
+            router.push("/language");
+          }}
           className="max-w-[720px] w-full bg-primary text-white font-bold text-base sm:text-xl py-3.5 sm:py-4 rounded-xl shadow-lg hover:bg-primary-dark animate-press transition-colors leading-tight flex items-center justify-center gap-2"
         >
           <span>Naye Mareez Ke Liye Shuru Karein (New Patient Intake) ⟳</span>

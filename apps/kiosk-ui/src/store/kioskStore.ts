@@ -15,6 +15,7 @@ import { RedFlagDetectionModule } from "@/modules/red-flags";
 import { ClinicalSummaryGenerationModule } from "@/modules/summary-generation";
 import { IntegrationModule } from "@/modules/integration";
 import { PersistenceService } from "@/services/persistence/persistenceService";
+import { ControlledClinicalHistory } from "@/modules/history-engine/types";
 
 export interface Medication {
   id?: string;
@@ -115,6 +116,15 @@ interface KioskState {
       medications: Medication[];
       labValues: LabValue[];
     };
+    complaintHistory?: {
+      onset?: string;
+      character?: string;
+      radiation?: string;
+      associatedSymptoms?: string[];
+      aggravatingFactors?: string[];
+      relievingFactors?: string[];
+      summaryDraft?: string;
+    };
   };
 
   // Shared OPD Queue
@@ -130,6 +140,8 @@ interface KioskState {
   setAyushData: (prakriti: string) => void;
   setAyushAssessmentField: (field: keyof AyushAssessment, value: string) => void;
   setScannedDocuments: (meds: Medication[], labs: LabValue[]) => void;
+  setComplaintHistoryDetails: (history: Partial<ControlledClinicalHistory>, summaryDraft?: string) => void;
+  resetPatientSession: () => void;
   completeIntakeAndEnqueue: () => number;
   selectPatient: (id: string) => void;
   amendRecord: (id: string, hpi: string) => void;
@@ -684,6 +696,66 @@ export const useKioskStore = create<KioskState>((set, get) => ({
       },
     })),
 
+  setComplaintHistoryDetails: (history, summaryDraft) =>
+    set((state) => ({
+      currentPatient: {
+        ...state.currentPatient,
+        duration: history.duration || state.currentPatient.duration,
+        severity: history.severity ?? state.currentPatient.severity,
+        complaintHistory: {
+          ...state.currentPatient.complaintHistory,
+          onset: history.onset || state.currentPatient.complaintHistory?.onset,
+          character: history.character || state.currentPatient.complaintHistory?.character,
+          radiation: history.radiation || state.currentPatient.complaintHistory?.radiation,
+          associatedSymptoms: history.associatedSymptoms?.length
+            ? history.associatedSymptoms
+            : state.currentPatient.complaintHistory?.associatedSymptoms,
+          aggravatingFactors: history.aggravatingFactors?.length
+            ? history.aggravatingFactors
+            : state.currentPatient.complaintHistory?.aggravatingFactors,
+          relievingFactors: history.relievingFactors?.length
+            ? history.relievingFactors
+            : state.currentPatient.complaintHistory?.relievingFactors,
+          summaryDraft: summaryDraft || state.currentPatient.complaintHistory?.summaryDraft,
+        }
+      }
+    })),
+
+  resetPatientSession: () => {
+    const randomId = Math.floor(1000 + Math.random() * 9000);
+    set({
+      currentPatient: {
+        name: `Walk-in Patient #${randomId}`,
+        age: 32,
+        gender: 'M',
+        abhaId: `91-${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}-${randomId}`,
+        mobile: `+91 98${Math.floor(10000000 + Math.random() * 90000000)}`,
+        consultationType: 'modern',
+        complaintId: 'chest_heart_lungs',
+        complaintLabel: 'Chest Pain & Tightness',
+        complaintIds: ['chest_heart_lungs'],
+        complaintLabels: ['Chest Pain & Tightness'],
+        severity: 5,
+        duration: '1 Day',
+        prakriti: 'Pitta-Vata',
+        ayushAssessment: {},
+        scannedDocs: {
+          medications: [],
+          labValues: []
+        },
+        complaintHistory: {
+          onset: '',
+          character: '',
+          radiation: '',
+          associatedSymptoms: [],
+          aggravatingFactors: [],
+          relievingFactors: [],
+          summaryDraft: ''
+        }
+      }
+    });
+  },
+
   completeIntakeAndEnqueue: () => {
     const state = get();
     const nextToken = (state.queue[state.queue.length - 1]?.token || 43) + 1;
@@ -695,14 +767,21 @@ export const useKioskStore = create<KioskState>((set, get) => ({
       labelHi: state.currentPatient.complaintLabels[idx] || id,
       labelEn: id,
       severity: state.currentPatient.severity,
-      duration: state.currentPatient.duration
+      duration: state.currentPatient.duration,
+      onset: (state.currentPatient.complaintHistory?.onset?.toLowerCase().includes("sudden") ? "sudden" : state.currentPatient.complaintHistory?.onset ? "gradual" : undefined) as "sudden" | "gradual" | "recurrent" | undefined,
+      character: state.currentPatient.complaintHistory?.character,
+      radiation: state.currentPatient.complaintHistory?.radiation,
+      associatedSymptoms: state.currentPatient.complaintHistory?.associatedSymptoms,
+      aggravatingFactors: state.currentPatient.complaintHistory?.aggravatingFactors,
+      relievingFactors: state.currentPatient.complaintHistory?.relievingFactors
     }));
 
     // 2. Rule Engine Evaluation (Triage + Red Flags + AYUSH)
     const triage = routePatientToOPD(complaintsList);
     const { redFlags, isEmergency } = RedFlagDetectionModule.analyze(
       "sess-" + Date.now(),
-      complaintsList
+      complaintsList,
+      state.currentPatient.complaintHistory
     );
     const isAyurveda = state.currentPatient.consultationType === "ayurveda";
     const ayushProfile = isAyurveda 
@@ -772,12 +851,18 @@ export const useKioskStore = create<KioskState>((set, get) => ({
         anatomicalRegion: state.currentPatient.complaintId,
         duration: state.currentPatient.duration,
         severity: state.currentPatient.severity,
-        associated: ["Fatigue", "Mild headache"],
-        onset: "Recent onset",
-        character: "Persistent discomfort",
-        radiation: "Localized",
-        aggravatingFactors: ["Exertion"],
-        relievingFactors: ["Rest"]
+        associated: state.currentPatient.complaintHistory?.associatedSymptoms?.length
+          ? state.currentPatient.complaintHistory.associatedSymptoms
+          : ["Fatigue", "Mild headache"],
+        onset: state.currentPatient.complaintHistory?.onset || "Recent onset",
+        character: state.currentPatient.complaintHistory?.character || "Persistent discomfort",
+        radiation: state.currentPatient.complaintHistory?.radiation || "Localized",
+        aggravatingFactors: state.currentPatient.complaintHistory?.aggravatingFactors?.length
+          ? state.currentPatient.complaintHistory.aggravatingFactors
+          : ["Exertion"],
+        relievingFactors: state.currentPatient.complaintHistory?.relievingFactors?.length
+          ? state.currentPatient.complaintHistory.relievingFactors
+          : ["Rest"]
       },
       ayushAssessment: ayushProfile,
       documents: {

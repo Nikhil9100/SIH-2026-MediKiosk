@@ -17,10 +17,11 @@ import {
   Edit3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ControlledClinicalHistory } from "@/modules/history-engine/types";
 
 interface Props {
   complaintId: string;
-  onHistoryUpdate?: (summaryText: string) => void;
+  onHistoryUpdate?: (history: ControlledClinicalHistory, summaryText: string) => void;
 }
 
 export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }: Props) {
@@ -53,9 +54,14 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
   useEffect(() => {
     const newEngine = new ConversationalHistoryEngine(pathwayKey);
     setEngine(newEngine);
-    setEngineState(newEngine.getState());
+    const st = newEngine.getState();
+    setEngineState(st);
     setPendingSpeechResult(null);
     setInterimTranscript("");
+    if (onHistoryUpdate) {
+      onHistoryUpdate(st.history, st.summaryDraft || "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathwayKey]);
 
   const currentQ = engineState.currentQuestion;
@@ -127,8 +133,8 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
     setIsEditingText(false);
     setCustomText("");
 
-    if (updated.summaryDraft && onHistoryUpdate) {
-      onHistoryUpdate(updated.summaryDraft);
+    if (onHistoryUpdate) {
+      onHistoryUpdate(updated.history, updated.summaryDraft || "");
     }
 
     // Read the next question aloud automatically where supported!
@@ -144,8 +150,8 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
     engine.answerChoice(choiceId);
     const updated = engine.getState();
     setEngineState(updated);
-    if (updated.summaryDraft && onHistoryUpdate) {
-      onHistoryUpdate(updated.summaryDraft);
+    if (onHistoryUpdate) {
+      onHistoryUpdate(updated.history, updated.summaryDraft || "");
     }
 
     // Read next question aloud
@@ -161,9 +167,13 @@ export default function AdaptiveClinicalInquiry({ complaintId, onHistoryUpdate }
     VoiceService.stopListening();
     const fresh = new ConversationalHistoryEngine(pathwayKey);
     setEngine(fresh);
-    setEngineState(fresh.getState());
+    const st = fresh.getState();
+    setEngineState(st);
     setPendingSpeechResult(null);
     setInterimTranscript("");
+    if (onHistoryUpdate) {
+      onHistoryUpdate(st.history, st.summaryDraft || "");
+    }
   };
 
   const activeRedFlag = engineState.detectedRedFlags[0];

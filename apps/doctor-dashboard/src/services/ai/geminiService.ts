@@ -26,9 +26,13 @@ export class ClinicalAiService {
    * COMPLIANCE: ALWAYS marked as isAiDraft: true until approved by physician.
    */
   public static generateDraftSummary(params: SummarizeClinicalIntakeParams): ClinicalSummary {
-    const complaintSummary = params.complaints.map(c => 
-      `${c.labelHi} (${c.labelEn}) - Severity ${c.severity}/10, Duration: ${c.duration || "acute onset"}`
-    ).join("; ");
+    const complaintSummary = params.complaints.map(c => {
+      const parts = [`${c.labelHi} (${c.labelEn}) - Severity ${c.severity}/10, Duration: ${c.duration || "acute onset"}`];
+      if (c.onset) parts.push(`Onset: ${c.onset}`);
+      if (c.character) parts.push(`Character: ${c.character}`);
+      if (c.radiation) parts.push(`Radiation: ${c.radiation}`);
+      return parts.join(", ");
+    }).join("; ");
 
     const associated = params.complaints
       .flatMap(c => c.associatedSymptoms || [])

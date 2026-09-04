@@ -90,7 +90,7 @@ const BODY_REGIONS = [
 
 export default function ChiefComplaintScreen() {
   const router = useRouter();
-  const { currentPatient, toggleComplaint, setConsultationType } = useKioskStore();
+  const { currentPatient, toggleComplaint, setConsultationType, setComplaintHistoryDetails } = useKioskStore();
   const [selectedIds, setSelectedIds] = useState<string[]>(currentPatient.complaintIds || ["stomach_abdomen"]);
   const [severity, setSeverity] = useState<number>(currentPatient.severity || 6);
   const [isListening, setIsListening] = useState<boolean>(false);
@@ -335,8 +335,8 @@ export default function ChiefComplaintScreen() {
           <div className="w-full space-y-6">
             <AdaptiveClinicalInquiry 
               complaintId={selectedIds[0] || "chest_heart_lungs"}
-              onHistoryUpdate={(answers) => {
-                console.log("[Modern Medicine Triage] Adaptive Answers:", answers);
+              onHistoryUpdate={(history, summaryDraft) => {
+                setComplaintHistoryDetails(history, summaryDraft);
               }}
             />
 
