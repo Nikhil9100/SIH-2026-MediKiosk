@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { HeadacheIcon, ChestPainIcon, StomachPainIcon, FeverIcon, MicIcon } from "@/components/icons";
 import { useKioskStore } from "@/store/kioskStore";
 import { cn } from "@/lib/utils";
-import { Flame, Check } from "lucide-react";
+import { Flame, Check, Volume2 } from "lucide-react";
 
 const COMPLAINTS = [
   { id: "headache", labelEn: "Headache", labelHi: "सिर दर्द", icon: HeadacheIcon },
@@ -20,10 +21,12 @@ const PRAKRITI_TYPES = [
 ];
 
 export default function ChiefComplaintScreen() {
+  const router = useRouter();
   const { setComplaint, setAyushData } = useKioskStore();
   const [selected, setSelected] = useState<string | null>("chest_pain");
   const [severity, setSeverity] = useState<number>(6);
   const [prakriti, setPrakriti] = useState<string>("Vata-Pitta");
+  const [isListening, setIsListening] = useState<boolean>(false);
 
   const handleSelect = (id: string, label: string) => {
     setSelected(id);
@@ -32,15 +35,38 @@ export default function ChiefComplaintScreen() {
 
   const handleNext = () => {
     setAyushData(prakriti);
-    window.location.href = '/document';
+    router.push("/document");
+  };
+
+  const handleMicToggle = () => {
+    if (!isListening) {
+      setIsListening(true);
+      // Simulate intelligent voice intake recognizing symptom
+      setTimeout(() => {
+        handleSelect("chest_pain", "छाती में दर्द (Chest pain)");
+        setSeverity(8);
+        setIsListening(false);
+      }, 2500);
+    } else {
+      setIsListening(false);
+    }
+  };
+
+  const playPromptAudio = () => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance("Aapko kya takleef hai? Dard kitna hai batayein.");
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
   };
 
   return (
     <div className="min-h-screen bg-surface flex flex-col items-center pb-28">
-      {/* Progress Bar (Kiosk Mode: 8px height) */}
+      {/* Progress Bar */}
       <div className="w-full max-w-[1024px] px-8 pt-6">
         <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-teal to-teal-bright w-[45%] transition-all duration-500 ease-out" />
+          <div className="h-full bg-gradient-to-r from-teal to-teal-bright w-[50%] transition-all duration-500 ease-out" />
         </div>
         <div className="mt-2 text-text-muted text-sm font-medium">Step 2 of 4 · Symptoms & Pariksha</div>
       </div>
@@ -48,7 +74,7 @@ export default function ChiefComplaintScreen() {
       {/* Header Navigation */}
       <header className="w-full max-w-[1024px] px-8 flex justify-between items-center mt-6">
         <button 
-          onClick={() => window.location.href = '/login'}
+          onClick={() => router.push("/login")}
           className="text-primary font-semibold text-xl flex items-center gap-2 animate-press"
         >
           <span className="text-2xl">←</span> Peeche (Back)
@@ -65,8 +91,12 @@ export default function ChiefComplaintScreen() {
         <div className="text-center flex flex-col items-center gap-1">
           <h1 className="text-primary text-3xl md:text-4xl font-semibold flex items-center justify-center gap-3">
             Aapko kya taklif hai?
-            <button className="text-teal bg-teal-light rounded-full p-2 animate-press">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            <button 
+              onClick={playPromptAudio}
+              className="text-teal bg-teal-light rounded-full p-2 animate-press hover:bg-[#E8F8F0]"
+              aria-label="Listen to question"
+            >
+              <Volume2 className="w-6 h-6" />
             </button>
           </h1>
           <h2 className="text-text-muted text-xl md:text-2xl">What is your primary problem?</h2>
@@ -106,7 +136,7 @@ export default function ChiefComplaintScreen() {
           })}
         </div>
 
-        {/* Pain Severity Scale (Wong-Baker FACES clinical representation) */}
+        {/* Pain Severity Scale */}
         <div className="w-full bg-surface-card border border-border rounded-2xl p-6 shadow-sm">
           <div className="flex justify-between items-center mb-3">
             <span className="font-bold text-text text-base">Dard Kitna Hai? (Pain Severity)</span>
@@ -132,7 +162,7 @@ export default function ChiefComplaintScreen() {
           </div>
         </div>
 
-        {/* AYUSH Dashavidha Pariksha Intake (PS 26047 Core Evaluation Mandate) */}
+        {/* AYUSH Dashavidha Pariksha Intake */}
         <div className="w-full bg-surface-card border-2 border-teal/30 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <Flame className="w-5 h-5 text-warning" />
@@ -164,18 +194,28 @@ export default function ChiefComplaintScreen() {
           </div>
         </div>
 
-        {/* Voice Pill */}
+        {/* Voice Pill with Active Listening State */}
         <div className="w-full">
-          <button className="w-full flex items-center justify-center gap-4 bg-teal-light border-2 border-success rounded-full py-4 px-6 animate-press hover:bg-[#E8F8F0]">
+          <button 
+            onClick={handleMicToggle}
+            className={cn(
+              "w-full flex items-center justify-center gap-4 border-2 rounded-full py-4 px-6 animate-press transition-all",
+              isListening 
+                ? "bg-alert/10 border-alert text-alert ring-4 ring-alert/20 animate-pulse"
+                : "bg-teal-light border-success text-text hover:bg-[#E8F8F0]"
+            )}
+          >
             <div className="w-7 h-7">
               <MicIcon />
             </div>
-            <span className="text-text font-bold text-lg">Bol kar batayein (Speak problem)</span>
+            <span className="font-bold text-lg">
+              {isListening ? "Sun rahe hain... Bolte rahiye (Listening...)" : "Bol kar batayein (Tap to Speak)"}
+            </span>
           </button>
         </div>
       </main>
 
-      {/* Big Action Button (Fixed Bottom) */}
+      {/* Big Action Button */}
       <div className="fixed bottom-0 left-0 w-full bg-surface/90 backdrop-blur-sm p-6 flex justify-center border-t border-border">
         <button 
           onClick={handleNext}

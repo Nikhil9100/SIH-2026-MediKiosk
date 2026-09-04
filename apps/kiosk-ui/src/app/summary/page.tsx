@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useKioskStore } from "@/store/kioskStore";
 import { 
   CheckCircle2, 
@@ -13,18 +14,23 @@ import {
 } from "lucide-react";
 
 export default function SummaryStep() {
+  const router = useRouter();
   const { currentPatient, completeIntakeAndEnqueue, setView } = useKioskStore();
-  const [tokenNumber, setTokenNumber] = useState<number | null>(null);
+  const [tokenNumber, setTokenNumber] = useState<number>(43);
+  const hasEnqueued = useRef<boolean>(false);
 
   useEffect(() => {
-    // Automatically generate token and push to the live queue
-    const token = completeIntakeAndEnqueue();
-    setTokenNumber(token);
+    // Idempotent guard: only push to the OPD queue once per session
+    if (!hasEnqueued.current) {
+      hasEnqueued.current = true;
+      const token = completeIntakeAndEnqueue();
+      setTokenNumber(token);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col items-center pb-24">
+    <div className="min-h-screen bg-surface flex flex-col items-center pb-28">
       {/* Progress Bar (100% Complete) */}
       <div className="w-full max-w-[1024px] px-8 pt-6">
         <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
@@ -39,10 +45,10 @@ export default function SummaryStep() {
       <main className="w-full max-w-[640px] mt-8 flex flex-col items-center px-4">
         <div className="text-center mb-6">
           <h1 className="text-primary text-3xl md:text-4xl font-bold flex items-center justify-center gap-2">
-            Dhanbad! Aapka Token Taiyaar Hai
+            Dhanyawad! Aapka Token Taiyaar Hai
           </h1>
           <p className="text-text-muted text-lg mt-1">
-            Thank you! Your intake is sent to the doctor.
+            Thank you! Your clinical case has been routed to the physician.
           </p>
         </div>
 
@@ -59,7 +65,7 @@ export default function SummaryStep() {
           <div className="my-4">
             <span className="text-sm font-semibold text-text-muted block">Aapka Token Number</span>
             <div className="text-6xl sm:text-7xl font-extrabold text-primary tracking-tight font-mono">
-              #{tokenNumber || 43}
+              #{tokenNumber}
             </div>
           </div>
 
@@ -123,7 +129,7 @@ export default function SummaryStep() {
           </div>
         </div>
 
-        {/* Live Demo Switcher CTA (Judges Love This) */}
+        {/* Live Demo Switcher CTA */}
         <div className="mt-8 w-full">
           <div className="bg-teal-light border-2 border-teal/40 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
             <div>
@@ -131,13 +137,11 @@ export default function SummaryStep() {
                 <Sparkles className="w-4 h-4" /> Live Demo Simulation
               </div>
               <p className="text-xs text-text-muted mt-0.5">
-                Switch to Doctor Console to see #{tokenNumber || 43} appear at the top of the queue!
+                Switch to Doctor Console to see #{tokenNumber} appear at the top of the queue!
               </p>
             </div>
             <button
-              onClick={() => {
-                setView('physician');
-              }}
+              onClick={() => setView('physician')}
               className="bg-teal text-white font-bold text-sm px-5 py-3 rounded-xl shadow-md hover:bg-teal-bright flex items-center gap-2 shrink-0 animate-press"
             >
               <Stethoscope className="w-4 h-4" /> Open Doctor Console →
@@ -149,8 +153,8 @@ export default function SummaryStep() {
       {/* Start Next Patient Button */}
       <div className="fixed bottom-0 left-0 w-full bg-surface/90 backdrop-blur-sm p-6 flex justify-center border-t border-border">
         <button
-          onClick={() => window.location.href = '/language'}
-          className="max-w-[640px] w-full bg-primary text-white font-bold text-2xl py-5 rounded-lg shadow-lg hover:bg-primary-dark animate-press transition-colors"
+          onClick={() => router.push("/language")}
+          className="max-w-[640px] w-full bg-primary text-white font-bold text-2xl py-5 rounded-xl shadow-lg hover:bg-primary-dark animate-press transition-colors"
         >
           Naye Mareez Ke Liye Shuru Karein (New Patient) ⟳
         </button>

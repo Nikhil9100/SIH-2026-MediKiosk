@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useKioskStore } from "@/store/kioskStore";
 import { 
   FileScan, 
@@ -19,6 +20,7 @@ const SCAN_STEPS = [
 ];
 
 export default function DocumentStep() {
+  const router = useRouter();
   const { currentPatient } = useKioskStore();
   const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'done'>('idle');
   const [progress, setProgress] = useState(0);
@@ -29,7 +31,7 @@ export default function DocumentStep() {
     setProgress(0);
     setMessageIdx(0);
 
-    const duration = 2500;
+    const duration = 2200;
     const interval = 50;
     let elapsed = 0;
 
@@ -47,7 +49,7 @@ export default function DocumentStep() {
   };
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col items-center pb-24">
+    <div className="min-h-screen bg-surface flex flex-col items-center pb-28">
       {/* Progress Bar */}
       <div className="w-full max-w-[1024px] px-8 pt-6">
         <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
@@ -59,14 +61,14 @@ export default function DocumentStep() {
       {/* Header Navigation */}
       <header className="w-full max-w-[1024px] px-8 flex justify-between items-center mt-6">
         <button 
-          onClick={() => window.location.href = '/complaint'}
+          onClick={() => router.push("/complaint")}
           className="text-primary font-semibold text-xl flex items-center gap-2 animate-press"
         >
           <span className="text-2xl">←</span> Peeche (Back)
         </button>
         <button 
-          onClick={() => window.location.href = '/summary'}
-          className="text-text-muted font-semibold text-xl flex items-center gap-2 animate-press"
+          onClick={() => router.push("/summary")}
+          className="text-text-muted hover:text-text font-semibold text-base flex items-center gap-1.5 animate-press bg-surface-card px-4 py-2 rounded-xl border border-border"
         >
           Skip (No Docs) ⏭
         </button>
@@ -192,8 +194,8 @@ export default function DocumentStep() {
       {/* Big Action Button */}
       <div className="fixed bottom-0 left-0 w-full bg-surface/90 backdrop-blur-sm p-6 flex justify-center border-t border-border">
         <button
-          onClick={() => window.location.href = '/summary'}
-          className="max-w-[800px] w-full bg-primary text-white font-bold text-2xl py-5 rounded-lg shadow-lg hover:bg-primary-dark animate-press transition-colors"
+          onClick={() => router.push("/summary")}
+          className="max-w-[800px] w-full bg-primary text-white font-bold text-2xl py-5 rounded-xl shadow-lg hover:bg-primary-dark animate-press transition-colors"
         >
           {scanStatus === 'done' ? "Review & Generate Token →" : "Aage Badhein (Next) →"}
         </button>
