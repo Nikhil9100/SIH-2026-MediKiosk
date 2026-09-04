@@ -1,1 +1,4 @@
-{"private": true, "pnpm": {"approvedBuilds": ["*"]}}
+{
+  "name": "medikiosk-workspace",
+  "private": true
+}
