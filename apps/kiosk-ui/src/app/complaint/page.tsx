@@ -15,6 +15,7 @@ import {
 } from "@/components/icons";
 import { useKioskStore } from "@/store/kioskStore";
 import { cn } from "@/lib/utils";
+import AdaptiveClinicalInquiry from "@/components/AdaptiveClinicalInquiry";
 import { Flame, Check, Volume2, X } from "lucide-react";
 
 // 8 Anatomically Accurate Body Regions with clinical descriptions
@@ -271,6 +272,11 @@ export default function ChiefComplaintScreen() {
             );
           })}
         </div>
+
+        {/* 4.5. Controlled Adaptive Clinical Inquiry Engine (SIH26047 Core) */}
+        <AdaptiveClinicalInquiry 
+          complaintId={selectedIds[0] || "stomach_abdomen"} 
+        />
 
         {/* 5. Pain Severity & AYUSH Section - Responsive Dual Column on Laptop */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 w-full">
