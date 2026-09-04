@@ -165,6 +165,28 @@ export default function PhysicianConsole() {
               </div>
             </div>
 
+            {/* Red Flag Clinical Alert Banner */}
+            {patient.redFlags && patient.redFlags.length > 0 && (
+              <div className="bg-alert/10 border-2 border-alert rounded-2xl p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-alert text-white flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-alert text-base">
+                      🚨 Red Flag Clinical Alert: {patient.redFlags[0].condition}
+                    </h3>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      {patient.redFlags[0].clinicalRationale}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold uppercase bg-alert text-white px-3 py-1 rounded-full shrink-0">
+                  Code Red Triage
+                </span>
+              </div>
+            )}
+
             {/* AI Clinical Summary (Draft) & HPI */}
             <section className="bg-surface-card border border-border rounded-2xl p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">

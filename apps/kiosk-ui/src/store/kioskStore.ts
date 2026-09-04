@@ -1,4 +1,11 @@
-import { create } from 'zustand';
+import { create } from "zustand";
+import { Complaint, RedFlag, ClinicalSummary, Patient } from "@/models";
+import { routePatientToOPD } from "@/rules/triageRules";
+import { determineAyushProfile } from "@/rules/ayushRules";
+import { RedFlagDetectionModule } from "@/modules/red-flags";
+import { ClinicalSummaryGenerationModule } from "@/modules/summary-generation";
+import { IntegrationModule } from "@/modules/integration";
+import { PersistenceService } from "@/services/persistence/persistenceService";
 
 export interface Medication {
   name: string;
@@ -42,6 +49,8 @@ export interface PatientRecord {
     labValues: LabValue[];
   };
   hpiOverride?: string;
+  redFlags?: RedFlag[];
+  clinicalSummary?: ClinicalSummary;
   status: 'waiting' | 'in-consult' | 'pushed';
 }
 
@@ -249,11 +258,69 @@ export const useKioskStore = create<KioskState>((set, get) => ({
   completeIntakeAndEnqueue: () => {
     const state = get();
     const nextToken = (state.queue[state.queue.length - 1]?.token || 42) + 1;
+    
+    // 1. Map Complaints to Domain Models
+    const complaintsList: Complaint[] = state.currentPatient.complaintIds.map((id, idx) => ({
+      id,
+      anatomicalRegion: id,
+      labelHi: state.currentPatient.complaintLabels[idx] || id,
+      labelEn: id,
+      severity: state.currentPatient.severity,
+      duration: state.currentPatient.duration
+    }));
+
+    // 2. Rule Engine Evaluation (Triage + Red Flags + AYUSH)
+    const triage = routePatientToOPD(complaintsList);
+    const { redFlags, isEmergency } = RedFlagDetectionModule.analyze(
+      `sess-${Date.now()}`,
+      complaintsList
+    );
+    const ayushProfile = determineAyushProfile(state.currentPatient.prakriti);
+
+    // 3. Clinical Summary Draft (Strict AI Governance: isAiDraft is true)
+    const draftSummary = ClinicalSummaryGenerationModule.buildDraftSummary({
+      patient: {
+        id: `p-${Date.now()}`,
+        name: state.currentPatient.name,
+        age: state.currentPatient.age,
+        gender: state.currentPatient.gender,
+        abhaId: state.currentPatient.abhaId
+      },
+      sessionId: `sess-${Date.now()}`,
+      tokenNumber: nextToken,
+      complaints: complaintsList,
+      ayushAssessment: ayushProfile,
+      medications: state.currentPatient.scannedDocs.medications.map((m, idx) => ({
+        id: `med-${idx}`,
+        category: "medication",
+        name: m.name,
+        dosage: m.dose,
+        frequency: m.frequency,
+        note: m.note,
+        confidence: 0.94,
+        isVerifiedByDoctor: false
+      })),
+      labs: state.currentPatient.scannedDocs.labValues.map((l, idx) => ({
+        id: `lab-${idx}`,
+        category: "lab_biomarker",
+        name: l.test,
+        value: l.value,
+        referenceRange: l.range,
+        abnormalFlag: l.flag,
+        confidence: 0.96,
+        isVerifiedByDoctor: false
+      })),
+      redFlags,
+      assignedRoom: isEmergency ? "Room 1 (Red Flag Emergency)" : triage.room,
+      assignedDepartment: isEmergency ? "Emergency Triage" : triage.department,
+      estimatedWaitMinutes: isEmergency ? 2 : triage.estimatedWaitMinutes
+    });
+
     const newRecord: PatientRecord = {
-      id: `p-${Date.now()}`,
+      id: draftSummary.patientId,
       token: nextToken,
-      room: 'Room 3 (General OPD)',
-      department: 'General OPD & Triage',
+      room: draftSummary.assignedRoom,
+      department: draftSummary.assignedDepartment,
       name: state.currentPatient.name,
       age: state.currentPatient.age,
       gender: state.currentPatient.gender,
@@ -264,26 +331,30 @@ export const useKioskStore = create<KioskState>((set, get) => ({
         symptomLabel: state.currentPatient.complaintLabel,
         duration: state.currentPatient.duration,
         severity: state.currentPatient.severity,
-        associated: ['Fatigue', 'Mild Headache'],
+        associated: ["Fatigue", "Mild Headache"],
       },
       ayushAssessment: {
-        prakriti: state.currentPatient.prakriti,
-        agni: 'Samagni (Balanced)',
-        bala: 'Madhyama',
+        prakriti: ayushProfile.prakriti,
+        agni: ayushProfile.agni,
+        bala: ayushProfile.bala,
       },
       documents: {
         scanned: true,
         medications: state.currentPatient.scannedDocs.medications,
         labValues: state.currentPatient.scannedDocs.labValues,
       },
-      status: 'waiting',
+      redFlags,
+      clinicalSummary: draftSummary,
+      status: "waiting",
     };
 
+    const newQueue = [newRecord, ...state.queue];
     set({
-      queue: [newRecord, ...state.queue],
+      queue: newQueue,
       selectedPatientId: newRecord.id,
     });
 
+    PersistenceService.saveQueueLocal(newQueue);
     return nextToken;
   },
 
@@ -296,10 +367,49 @@ export const useKioskStore = create<KioskState>((set, get) => ({
       ),
     })),
 
-  pushToEmr: (id) =>
-    set((state) => ({
-      queue: state.queue.map((p) =>
-        p.id === id ? { ...p, status: 'pushed' } : p
-      ),
-    })),
+  pushToEmr: (id) => {
+    const state = get();
+    const record = state.queue.find(p => p.id === id);
+    if (record) {
+      const patientModel: Patient = {
+        id: record.id,
+        name: record.name,
+        age: record.age,
+        gender: (record.gender === "F" ? "F" : "M"),
+        abhaId: record.abhaId,
+        mobile: record.mobile,
+        registeredAt: record.waitSince
+      };
+      
+      const summaryModel = record.clinicalSummary || ClinicalSummaryGenerationModule.buildDraftSummary({
+        patient: patientModel,
+        sessionId: `sess-${record.id}`,
+        tokenNumber: record.token,
+        complaints: [{
+          id: "c1",
+          anatomicalRegion: "general",
+          labelHi: record.complaint.symptomLabel,
+          labelEn: record.complaint.symptomLabel,
+          severity: record.complaint.severity || 5
+        }],
+        medications: [],
+        labs: [],
+        redFlags: record.redFlags || [],
+        assignedRoom: record.room,
+        assignedDepartment: record.department,
+        estimatedWaitMinutes: 8
+      });
+
+      const fhirBundle = IntegrationModule.generateAbdmBundle(patientModel, summaryModel);
+      console.log("[ABDM Integration] Generated HL7 FHIR R4 Bundle:", fhirBundle);
+    }
+
+    set((state) => {
+      const updatedQueue = state.queue.map((p) =>
+        p.id === id ? { ...p, status: "pushed" as const } : p
+      );
+      PersistenceService.saveQueueLocal(updatedQueue);
+      return { queue: updatedQueue };
+    });
+  },
 }));
