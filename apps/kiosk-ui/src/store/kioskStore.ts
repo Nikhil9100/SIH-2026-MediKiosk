@@ -1,5 +1,14 @@
 import { create } from "zustand";
-import { Complaint, RedFlag, ClinicalSummary, Patient, PatientVitals, MedicalTimelineEvent } from "@/models";
+import { 
+  Complaint, 
+  RedFlag, 
+  ClinicalSummary, 
+  Patient, 
+  PatientVitals, 
+  MedicalTimelineEvent,
+  AyushAssessment,
+  ConsultationType
+} from "@/models";
 import { routePatientToOPD } from "@/rules/triageRules";
 import { determineAyushProfile } from "@/rules/ayushRules";
 import { RedFlagDetectionModule } from "@/modules/red-flags";
@@ -37,6 +46,7 @@ export interface PatientRecord {
   abhaId: string;
   mobile: string;
   waitSince: number;
+  consultationType: ConsultationType;
   vitals?: PatientVitals;
   complaint: {
     symptomLabel: string;
@@ -50,13 +60,7 @@ export interface PatientRecord {
     aggravatingFactors?: string[];
     relievingFactors?: string[];
   };
-  ayushAssessment?: {
-    prakriti: string;
-    agni: string;
-    bala: string;
-    koshtha?: string;
-    satmya?: string;
-  };
+  ayushAssessment?: AyushAssessment;
   documents?: {
     scanned: boolean;
     medications: Medication[];
@@ -98,6 +102,7 @@ interface KioskState {
     gender: string;
     abhaId: string;
     mobile: string;
+    consultationType: ConsultationType;
     complaintId: string;
     complaintLabel: string;
     complaintIds: string[];
@@ -105,6 +110,7 @@ interface KioskState {
     severity: number;
     duration: string;
     prakriti: string;
+    ayushAssessment: Partial<AyushAssessment>;
     scannedDocs: {
       medications: Medication[];
       labValues: LabValue[];
@@ -118,9 +124,11 @@ interface KioskState {
   // Actions
   setView: (view: 'kiosk' | 'physician') => void;
   setLanguage: (lang: string) => void;
+  setConsultationType: (type: ConsultationType) => void;
   setComplaint: (id: string, label: string) => void;
   toggleComplaint: (id: string, label: string) => void;
   setAyushData: (prakriti: string) => void;
+  setAyushAssessmentField: (field: keyof AyushAssessment, value: string) => void;
   setScannedDocuments: (meds: Medication[], labs: LabValue[]) => void;
   completeIntakeAndEnqueue: () => number;
   selectPatient: (id: string) => void;
@@ -144,6 +152,7 @@ const SEED_QUEUE: PatientRecord[] = [
     abhaId: '91-4521-9981-4019',
     mobile: '+91 94120 44812',
     waitSince: Date.now() - 6 * 60 * 1000,
+    consultationType: 'modern',
     vitals: {
       bp: '168/98 mmHg',
       pulse: 104,
@@ -162,12 +171,6 @@ const SEED_QUEUE: PatientRecord[] = [
       associated: ['Severe cold sweats (Diaphoresis)', 'Dizziness', 'Mild nausea'],
       aggravatingFactors: ['Exertion', 'Deep inspiration'],
       relievingFactors: ['Rest (Minimal relief)']
-    },
-    ayushAssessment: {
-      prakriti: 'Vata-Pitta',
-      agni: 'Vishamagni (Irregular)',
-      bala: 'Avara (Diminished)',
-      koshtha: 'Madhyama'
     },
     documents: {
       scanned: true,
@@ -254,6 +257,7 @@ const SEED_QUEUE: PatientRecord[] = [
     abhaId: '91-8842-1923-7712',
     mobile: '+91 98451 23412',
     waitSince: Date.now() - 14 * 60 * 1000,
+    consultationType: 'ayurveda',
     vitals: {
       bp: '128/82 mmHg',
       pulse: 76,
@@ -275,7 +279,18 @@ const SEED_QUEUE: PatientRecord[] = [
     },
     ayushAssessment: {
       prakriti: 'Pitta-Vata',
-      agni: 'Tikshna (Hyperactive / Acidic)',
+      vikriti: 'Pitta-Vata Vriddhi (Amlapitta & Ushnata)',
+      sara: 'Meda-Mamsa Sara (Moderate tissue reserves)',
+      samhanana: 'Madhyama (Moderate physical compactness)',
+      pramana: 'Anuroopa (Proportionate body stature)',
+      satmya: 'Madhyama Satmya (Average tolerance)',
+      sattva: 'Madhyama Sattva (Moderate psychological endurance)',
+      aharaShakti: 'Tikshnagni (Strong food intake, rapid burning)',
+      vyayamaShakti: 'Madhyama (Medium stamina)',
+      vaya: 'Madhyama Vaya (54 years, adult stage)',
+      ahara: 'Tikshna-Katu rasa pradhana (Spicy/oily foods, tea)',
+      vihara: 'Ratri-jagarana (Late sleeping at 12:30 AM, sedentary work)',
+      agni: 'Tikshnagni (Hyperactive / Acidic)',
       bala: 'Madhyama (Medium)',
       koshtha: 'Krura (Tendency to constipation)'
     },
@@ -353,6 +368,7 @@ const SEED_QUEUE: PatientRecord[] = [
     abhaId: '91-3144-8821-6502',
     mobile: '+91 97182 89012',
     waitSince: Date.now() - 48 * 60 * 1000,
+    consultationType: 'ayurveda',
     vitals: {
       bp: '116/74 mmHg',
       pulse: 72,
@@ -366,15 +382,26 @@ const SEED_QUEUE: PatientRecord[] = [
       duration: '1 Day',
       severity: 5,
       onset: 'Gradual, started right fronto-temporal',
-      character: 'Pulsating, throbbing hemicranial ache',
+      character: 'Pulsating, throbbing hemicranial ache (Ardhavabhedaka)',
       associated: ['Photophobia', 'Phonophobia'],
       aggravatingFactors: ['Bright sunlight', 'Computer screens'],
       relievingFactors: ['Dark quiet room', 'Cold compress']
     },
     ayushAssessment: {
       prakriti: 'Pitta-Kapha',
-      agni: 'Samagni (Balanced)',
-      bala: 'Madhyama (Medium)',
+      vikriti: 'Pitta-Vata Ardhavabhedaka',
+      sara: 'Twak-Rakta Sara (Fair complexion, sensitive)',
+      samhanana: 'Madhyama',
+      pramana: 'Anuroopa',
+      satmya: 'Sarva-rasa Satmya',
+      sattva: 'Pravara Sattva',
+      aharaShakti: 'Samagni (Balanced appetite)',
+      vyayamaShakti: 'Madhyama',
+      vaya: 'Madhyama Vaya (29y)',
+      ahara: 'Lacto-Vegetarian, timely meals',
+      vihara: 'Screen exposure > 9h, occasional Ratri-jagarana',
+      agni: 'Samagni',
+      bala: 'Madhyama',
       koshtha: 'Mridu'
     },
     documents: {
@@ -439,6 +466,7 @@ const SEED_QUEUE: PatientRecord[] = [
     abhaId: '91-6288-4491-1002',
     mobile: '+91 99201 88321',
     waitSince: Date.now() - 3 * 60 * 1000,
+    consultationType: 'ayurveda',
     vitals: {
       bp: '134/86 mmHg',
       pulse: 80,
@@ -452,7 +480,7 @@ const SEED_QUEUE: PatientRecord[] = [
       duration: '3 Weeks',
       severity: 6,
       onset: 'Insidious, aggravated by prolonged sitting',
-      character: 'Dull aching stiffness with morning tightness',
+      character: 'Dull aching stiffness with morning tightness (Katigraha)',
       radiation: 'Radiation to right posterior thigh up to knee',
       associated: ['Difficulty standing upright after prolonged sitting'],
       aggravatingFactors: ['Forward bending', 'Lifting weights'],
@@ -460,6 +488,17 @@ const SEED_QUEUE: PatientRecord[] = [
     },
     ayushAssessment: {
       prakriti: 'Vata',
+      vikriti: 'Vata Vriddhi / Katigraha',
+      sara: 'Mamsa-Asthi Sara (Moderate bone strength)',
+      samhanana: 'Madhyama',
+      pramana: 'Anuroopa',
+      satmya: 'Madhyama',
+      sattva: 'Madhyama',
+      aharaShakti: 'Vishamagni',
+      vyayamaShakti: 'Avara (Pain restricts movement)',
+      vaya: 'Madhyama Vaya (48y)',
+      ahara: 'Mixed, dry snacks',
+      vihara: 'Prolonged sitting work, vehicle vibration',
       agni: 'Vishamagni',
       bala: 'Madhyama',
       koshtha: 'Madhyama'
@@ -525,32 +564,54 @@ export const useKioskStore = create<KioskState>((set, get) => ({
     gender: 'M',
     abhaId: '91-7721-3914-1029',
     mobile: '+91 98112 39011',
-    complaintId: 'chest_pain',
-    complaintLabel: 'Chest Pain / छाती में दर्द',
-    complaintIds: ['chest_pain'],
-    complaintLabels: ['Chest Pain / छाती में दर्द'],
-    severity: 7,
-    duration: '2 Days',
-    prakriti: 'Vata-Kapha',
+    consultationType: 'ayurveda',
+    complaintId: 'stomach_abdomen',
+    complaintLabel: 'Stomach Pain & Acid Reflux / पेट दर्द व एसिडिटी',
+    complaintIds: ['stomach_abdomen'],
+    complaintLabels: ['Stomach Pain & Acid Reflux / पेट दर्द व एसिडिटी'],
+    severity: 6,
+    duration: '3 Days',
+    prakriti: 'Pitta-Vata',
+    ayushAssessment: {
+      prakriti: 'Pitta-Vata',
+      vikriti: 'Pitta Vriddhi (Amlapitta)',
+      sara: 'Madhyama Sara',
+      samhanana: 'Madhyama',
+      pramana: 'Anuroopa',
+      satmya: 'Madhyama Satmya',
+      sattva: 'Madhyama Sattva',
+      aharaShakti: 'Tikshnagni (Strong hunger, acidity)',
+      vyayamaShakti: 'Madhyama',
+      vaya: 'Madhyama Vaya',
+      ahara: 'Tikshna-Katu (Spicy, fried foods)',
+      vihara: 'Ratri-jagarana (Late sleeping)'
+    },
     scannedDocs: {
       medications: [
-        { name: 'Metformin', dose: '500mg', frequency: 'BD', note: 'with meals', confidence: 0.94, source: 'ocr' },
-        { name: 'Aspirin', dose: '75mg', frequency: 'OD', note: 'post lunch', confidence: 0.95, source: 'ocr' },
+        { name: 'Avipattikar Churna', dose: '3g', frequency: 'HS', note: 'warm water', confidence: 0.96, source: 'ocr' },
+        { name: 'Sutshekhar Ras', dose: '125mg', frequency: 'BD', note: 'with honey', confidence: 0.94, source: 'ocr' },
       ],
       labValues: [
-        { test: 'HbA1c', value: '8.4%', range: '4.0 – 5.6%', flag: 'high', confidence: 0.96 },
-        { test: 'Fasting Glucose', value: '162 mg/dL', range: '70 – 100 mg/dL', flag: 'high', confidence: 0.95 },
-        { test: 'LDL Cholesterol', value: '138 mg/dL', range: '< 100 mg/dL', flag: 'high', confidence: 0.93 },
+        { test: 'Serum Bilirubin', value: '1.2 mg/dL', range: '0.2 – 1.2 mg/dL', flag: 'normal', confidence: 0.95 },
+        { test: 'SGPT/ALT', value: '38 U/L', range: '7 – 56 U/L', flag: 'normal', confidence: 0.96 },
       ],
     },
   },
 
   queue: SEED_QUEUE,
-  selectedPatientId: 'p-102',
+  selectedPatientId: 'p-101',
 
   setView: (view) => set({ activeView: view }),
   setLanguage: (lang) => set({ language: lang }),
   
+  setConsultationType: (type) =>
+    set((state) => ({
+      currentPatient: {
+        ...state.currentPatient,
+        consultationType: type
+      }
+    })),
+
   setComplaint: (id, label) =>
     set((state) => ({
       currentPatient: {
@@ -594,7 +655,25 @@ export const useKioskStore = create<KioskState>((set, get) => ({
 
   setAyushData: (prakriti) =>
     set((state) => ({
-      currentPatient: { ...state.currentPatient, prakriti },
+      currentPatient: { 
+        ...state.currentPatient, 
+        prakriti,
+        ayushAssessment: {
+          ...state.currentPatient.ayushAssessment,
+          prakriti
+        }
+      },
+    })),
+
+  setAyushAssessmentField: (field, value) =>
+    set((state) => ({
+      currentPatient: {
+        ...state.currentPatient,
+        ayushAssessment: {
+          ...state.currentPatient.ayushAssessment,
+          [field]: value
+        }
+      }
     })),
 
   setScannedDocuments: (meds, labs) =>
@@ -625,7 +704,10 @@ export const useKioskStore = create<KioskState>((set, get) => ({
       "sess-" + Date.now(),
       complaintsList
     );
-    const ayushProfile = determineAyushProfile(state.currentPatient.prakriti);
+    const isAyurveda = state.currentPatient.consultationType === "ayurveda";
+    const ayushProfile = isAyurveda 
+      ? determineAyushProfile(state.currentPatient.prakriti, state.currentPatient.ayushAssessment)
+      : undefined;
 
     // 3. Clinical Summary Draft (Strict AI Governance: isAiDraft is true)
     const draftSummary = ClinicalSummaryGenerationModule.buildDraftSummary({
@@ -661,8 +743,8 @@ export const useKioskStore = create<KioskState>((set, get) => ({
         isVerifiedByDoctor: false
       })),
       redFlags,
-      assignedRoom: isEmergency ? "Room 1 (Red Flag Emergency)" : triage.room,
-      assignedDepartment: isEmergency ? "Emergency Triage" : triage.department,
+      assignedRoom: isEmergency ? "Room 1 (Red Flag Emergency)" : isAyurveda ? "Room 2 (Ayush OPD)" : triage.room,
+      assignedDepartment: isEmergency ? "Emergency Triage" : isAyurveda ? "Kayachikitsa (Internal Medicine)" : triage.department,
       estimatedWaitMinutes: isEmergency ? 2 : triage.estimatedWaitMinutes
     });
 
@@ -677,6 +759,7 @@ export const useKioskStore = create<KioskState>((set, get) => ({
       abhaId: state.currentPatient.abhaId,
       mobile: state.currentPatient.mobile,
       waitSince: Date.now(),
+      consultationType: state.currentPatient.consultationType,
       vitals: {
         bp: isEmergency ? '154/96 mmHg' : '124/80 mmHg',
         pulse: isEmergency ? 98 : 78,
@@ -696,12 +779,7 @@ export const useKioskStore = create<KioskState>((set, get) => ({
         aggravatingFactors: ["Exertion"],
         relievingFactors: ["Rest"]
       },
-      ayushAssessment: {
-        prakriti: ayushProfile.prakriti,
-        agni: ayushProfile.agni,
-        bala: ayushProfile.bala,
-        koshtha: 'Madhyama'
-      },
+      ayushAssessment: ayushProfile,
       documents: {
         scanned: true,
         medications: state.currentPatient.scannedDocs.medications,
@@ -718,20 +796,20 @@ export const useKioskStore = create<KioskState>((set, get) => ({
         'Non-contributory family medical history'
       ],
       personalHistory: {
-        diet: 'Balanced mixed diet',
+        diet: isAyurveda && ayushProfile?.ahara ? ayushProfile.ahara : 'Balanced mixed diet',
         smoking: 'Non-smoker',
         alcohol: 'Non-drinker',
-        sleep: '7-8 hours restful sleep',
-        bowelBladder: 'Normal regular habits'
+        sleep: isAyurveda && ayushProfile?.vihara ? ayushProfile.vihara : '7-8 hours restful sleep',
+        bowelBladder: isAyurveda && ayushProfile?.koshtha ? `Koshtha: ${ayushProfile.koshtha}` : 'Normal regular habits'
       },
       medicalTimeline: [
         {
           id: "t-" + Date.now(),
           date: new Date().toISOString().split('T')[0],
           type: 'visit',
-          title: 'Kiosk Intake Session Completed',
+          title: isAyurveda ? 'Ayurvedic Case Intake Completed' : 'Modern Medicine Clinical Intake Completed',
           facility: 'AIIA MediKiosk Self-Service Station',
-          details: "Autonomous clinical intake completed for " + state.currentPatient.complaintLabel + ". AI-drafted record generated.",
+          details: `Autonomous intake completed for ${state.currentPatient.complaintLabel}. AI-drafted record generated for Vaidya / Physician review.`,
           status: 'Triage Ready'
         }
       ],

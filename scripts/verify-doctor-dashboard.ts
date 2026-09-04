@@ -93,7 +93,8 @@ const labEvent = emergencyPatient.medicalTimeline!.find(t => t.type === "lab");
 assert(!!admissionEvent && !!visitEvent && !!labEvent, "Timeline contains visit, lab, and hospital admission");
 
 // Dim 11: AYUSH Dashavidha Pariksha
-assert(!!emergencyPatient.ayushAssessment?.prakriti && !!emergencyPatient.ayushAssessment.agni, "AYUSH Prakriti & Agni recorded");
+const ayushPatient = initialQueue.find(p => p.consultationType === "ayurveda")!;
+assert(!!ayushPatient.ayushAssessment?.prakriti && !!ayushPatient.ayushAssessment.agni, "AYUSH Prakriti & Agni recorded on AYUSH patient");
 
 // 4. Doctor Review Actions & Confirmation Lifecycle Test
 console.log("\nTesting Doctor Actions Lifecycle on Ravi Kumar (p-101):");

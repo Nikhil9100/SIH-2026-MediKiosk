@@ -41,7 +41,7 @@ export default function LanguageScreen() {
 
   const handleBegin = () => {
     setLanguage(selected);
-    router.push("/login");
+    router.push("/consultation-type");
   };
 
   return (

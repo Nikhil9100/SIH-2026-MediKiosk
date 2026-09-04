@@ -102,18 +102,24 @@ export interface Answer {
   answeredAt: number;
 }
 
-// ==========================================
-// 6. AYUSH & Clinical History Models
-// ==========================================
+export type ConsultationType = "modern" | "ayurveda";
+
 export interface AyushAssessment {
   prakriti: string;         // "Vata" | "Pitta" | "Kapha" | "Vata-Pitta" etc.
-  vikriti?: string;         // Current doshic morbidity
-  agni: string;            // "Samagni" | "Vishamagni" | "Tikshnagni" | "Mandagni"
-  bala: string;            // "Pravara" (High) | "Madhyama" (Medium) | "Avara" (Low)
-  koshtha?: string;        // "Mridu" | "Madhyama" | "Krura" (Bowel habit)
-  satmya?: string;         // Dietary habituation
-  aharaShakti?: string;    // Food intake/digestive capacity
-  vyayamaShakti?: string;  // Physical endurance
+  vikriti: string;          // Current doshic morbidity (e.g. Vata-Pitta Vriddhi)
+  sara: string;             // Dhatu Sarata (e.g. Rakta-Meda Sara, Madhyama)
+  samhanana: string;        // Body compactness (e.g. Susamhata, Madhyama, Hina)
+  pramana: string;          // Body stature/proportions (e.g. Anuroopa, Madhyama)
+  satmya: string;           // Habituation & adaptability (e.g. Sarva-rasa, Madhyama)
+  sattva: string;           // Mental endurance & resilience (e.g. Pravara, Madhyama, Avara)
+  aharaShakti: string;      // Food intake & digestive capacity (e.g. Abhyavaharana & Jarana)
+  vyayamaShakti: string;    // Physical endurance (e.g. Pravara, Madhyama, Avara)
+  vaya: string;             // Age category (e.g. Madhyama, Bala, Vriddha)
+  ahara: string;            // Dietary habits (e.g. Tikshna-Katu rasa, Ushna)
+  vihara: string;           // Lifestyle & daily conduct (e.g. Ratri-jagarana, sedentary)
+  agni?: string;            // "Samagni" | "Vishamagni" | "Tikshnagni" | "Mandagni"
+  bala?: string;            // "Pravara" (High) | "Madhyama" (Medium) | "Avara" (Low)
+  koshtha?: string;         // "Mridu" | "Madhyama" | "Krura" (Bowel habit)
 }
 
 export interface ClinicalHistory {

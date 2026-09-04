@@ -403,6 +403,11 @@ export default function PhysicianConsole() {
                       <span className="text-[10px] font-bold bg-surface px-2 py-0.5 rounded border border-border text-text">
                         {p.department.split(" ")[0]}
                       </span>
+                      {p.consultationType === "ayurveda" && (
+                        <span className="text-[10px] font-bold bg-teal-light text-teal px-2 py-0.5 rounded border border-teal/20">
+                          🌿 AYUSH
+                        </span>
+                      )}
 
                       {hasRedFlags && !isVerified && (
                         <span className="text-[10px] font-black bg-alert text-white px-2 py-0.5 rounded flex items-center gap-1">
@@ -449,6 +454,9 @@ export default function PhysicianConsole() {
                       </span>
                       <span className="text-xs font-bold bg-teal-light text-teal px-2.5 py-1 rounded-md">
                         {patient.room}
+                      </span>
+                      <span className="text-xs font-bold bg-primary/10 text-primary px-2.5 py-1 rounded-md">
+                        {patient.consultationType === "ayurveda" ? "🌿 Ayurveda Stream" : "🏥 Modern Medicine"}
                       </span>
                     </div>
 
@@ -1175,10 +1183,10 @@ export default function PhysicianConsole() {
               </div>
             )}
 
-            {/* TAB 5: Ayurvedic Pariksha (Dashavidha) */}
+            {/* TAB 5: Ayurvedic Pariksha (Dashavidha - 12 Core SIH Fields) */}
             {activeTab === "ayush" && (
               <div className="bg-surface-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <Flame className="w-5 h-5 text-warning" />
                     <h3 className="font-bold text-text text-lg">Ayurvedic Assessment (Dashavidha Pariksha)</h3>
@@ -1186,46 +1194,90 @@ export default function PhysicianConsole() {
                       AIIA / Ministry of Ayush
                     </span>
                   </div>
+                  <span className="text-xs font-mono text-text-muted bg-surface px-2.5 py-1 rounded-lg border border-border font-bold">
+                    Mode: {patient.consultationType === "ayurveda" ? "🌿 Ayurveda OPD Intake" : "🏥 Modern Medicine"}
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                  <div className="bg-surface p-4 rounded-xl border border-border">
-                    <span className="text-xs text-text-muted font-medium">Prakriti (Constitution)</span>
-                    <p className="text-lg font-bold text-primary mt-1">
-                      {patient.ayushAssessment?.prakriti || "Vata-Pitta"}
-                    </p>
-                    <span className="text-[11px] text-teal font-medium">Doshic Baseline</span>
+                {/* 12 SIH Problem Statement Fields Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
+                  <div className="bg-surface p-3.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-teal font-bold uppercase block font-mono">1. प्रकृति (Prakriti)</span>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.prakriti || "Vata-Pitta"}</p>
+                    <span className="text-[10px] text-text-muted">Doshic Baseline</span>
                   </div>
 
-                  <div className="bg-surface p-4 rounded-xl border border-border">
-                    <span className="text-xs text-text-muted font-medium">Agni (Metabolic Fire)</span>
-                    <p className="text-lg font-bold text-warning mt-1">
-                      {patient.ayushAssessment?.agni || "Tikshna (Hyperactive)"}
-                    </p>
-                    <span className="text-[11px] text-text-muted">Metabolic Index</span>
+                  <div className="bg-surface p-3.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-warning font-bold uppercase block font-mono">2. विकृति (Vikriti)</span>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.vikriti || "Pitta-Vata Vriddhi"}</p>
+                    <span className="text-[10px] text-text-muted">Current Morbidity</span>
                   </div>
 
-                  <div className="bg-surface p-4 rounded-xl border border-border">
-                    <span className="text-xs text-text-muted font-medium">Bala (Vital Endurance)</span>
-                    <p className="text-lg font-bold text-text mt-1">
-                      {patient.ayushAssessment?.bala || "Madhyama (Medium)"}
-                    </p>
-                    <span className="text-[11px] text-text-muted">Immunity & Ojas</span>
+                  <div className="bg-surface p-3.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-primary font-bold uppercase block font-mono">3. सार (Sara)</span>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.sara || "Madhyama Sara"}</p>
+                    <span className="text-[10px] text-text-muted">Dhatu Excellence</span>
                   </div>
 
-                  <div className="bg-surface p-4 rounded-xl border border-border">
-                    <span className="text-xs text-text-muted font-medium">Koshtha (Bowel Habit)</span>
-                    <p className="text-lg font-bold text-text mt-1">
-                      {patient.ayushAssessment?.koshtha || "Madhyama"}
-                    </p>
-                    <span className="text-[11px] text-text-muted">Alimentary Tract</span>
+                  <div className="bg-surface p-3.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">4. संहनन (Samhanana)</span>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.samhanana || "Madhyama"}</p>
+                    <span className="text-[10px] text-text-muted">Body Compactness</span>
+                  </div>
+
+                  <div className="bg-surface p-3.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">5. प्रमाण (Pramana)</span>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.pramana || "Anuroopa"}</p>
+                    <span className="text-[10px] text-text-muted">Body Proportions</span>
+                  </div>
+
+                  <div className="bg-surface p-3.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">6. सात्म्य (Satmya)</span>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.satmya || "Madhyama Satmya"}</p>
+                    <span className="text-[10px] text-text-muted">Adaptability</span>
+                  </div>
+
+                  <div className="bg-surface p-3.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">7. सत्त्व (Sattva)</span>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.sattva || "Madhyama Sattva"}</p>
+                    <span className="text-[10px] text-text-muted">Mental Resilience</span>
+                  </div>
+
+                  <div className="bg-surface p-3.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-warning font-bold uppercase block font-mono">8. आहार शक्ति (Ahara Shakti)</span>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.aharaShakti || "Tikshnagni (Strong appetite)"}</p>
+                    <span className="text-[10px] text-text-muted">Intake & Agni</span>
+                  </div>
+
+                  <div className="bg-surface p-3.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">9. व्यायाम शक्ति (Vyayama Shakti)</span>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.vyayamaShakti || "Madhyama"}</p>
+                    <span className="text-[10px] text-text-muted">Physical Endurance</span>
+                  </div>
+
+                  <div className="bg-surface p-3.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">10. वय (Vaya)</span>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.vaya || "Madhyama Vaya"}</p>
+                    <span className="text-[10px] text-text-muted">Age Classification</span>
+                  </div>
+
+                  <div className="bg-surface p-3.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">11. आहार (Ahara)</span>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.ahara || "Tikshna-Katu rasa pradhana"}</p>
+                    <span className="text-[10px] text-text-muted">Dietary Habits</span>
+                  </div>
+
+                  <div className="bg-surface p-3.5 rounded-xl border border-border">
+                    <span className="text-[10px] text-text-muted font-bold uppercase block font-mono">12. विहार (Vihara)</span>
+                    <p className="font-bold text-text mt-1">{patient.ayushAssessment?.vihara || "Ratri-jagarana (Late sleeping)"}</p>
+                    <span className="text-[10px] text-text-muted">Daily Lifestyle</span>
                   </div>
                 </div>
 
                 <div className="p-4 rounded-xl bg-teal-light/40 border border-teal/20 text-xs text-text space-y-1">
-                  <p className="font-bold text-teal">AIIA Clinical Guidance Note:</p>
+                  <p className="font-bold text-teal">AIIA Clinical Guidance Note (Non-Diagnostic Safety Protocol):</p>
                   <p>
-                    Integrative analysis suggests correlation between <strong>{patient.ayushAssessment?.prakriti || "Vata-Pitta"}</strong> Prakriti and reported symptoms. Formulate Pathya-Apathya dietary recommendations accordingly.
+                    The 12-factor Dashavidha findings above are observational history collected for qualified Ayurvedic Vaidya / Practitioner review and clinical correlation. Artificial Intelligence does not diagnose Dosha imbalances or prescribe Chikitsa autonomously.
                   </p>
                 </div>
               </div>
