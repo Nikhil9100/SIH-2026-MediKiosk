@@ -252,3 +252,17 @@ export interface Consent {
   grantedAt: number;
   kioskId: string;
 }
+
+// ==========================================
+// 13. Medical Timeline Event Model
+// ==========================================
+export interface MedicalTimelineEvent {
+  id: string;
+  date: string;
+  type: "visit" | "lab" | "admission" | "prescription";
+  title: string;
+  facility: string;
+  details: string;
+  doctor?: string;
+  status?: string;
+}
