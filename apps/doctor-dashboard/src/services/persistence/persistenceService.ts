@@ -15,6 +15,8 @@ export const getSupabase = () => {
 };
 
 export class PersistenceService {
+  private static SESSION_VERSION = 2;
+  private static SESSION_TTL_MS = 30 * 60 * 1000;
   private static STORAGE_KEY = "medikiosk_active_queue_v1";
   private static SESSION_KEY = "medikiosk_active_patient_session_v1";
 
@@ -41,7 +43,11 @@ export class PersistenceService {
   public static saveActiveSessionLocal(data: unknown): void {
     if (typeof window === "undefined") return;
     try {
-      sessionStorage.setItem(this.SESSION_KEY, JSON.stringify(data));
+      sessionStorage.setItem(this.SESSION_KEY, JSON.stringify({
+        version: this.SESSION_VERSION,
+        savedAt: Date.now(),
+        data
+      }));
     } catch (e) {
       console.warn("Could not save session to sessionStorage:", e);
     }
@@ -50,8 +56,14 @@ export class PersistenceService {
   public static loadActiveSessionLocal<T = unknown>(): T | null {
     if (typeof window === "undefined") return null;
     try {
-      const data = sessionStorage.getItem(this.SESSION_KEY);
-      return data ? JSON.parse(data) : null;
+      const raw = sessionStorage.getItem(this.SESSION_KEY);
+      if (!raw) return null;
+      const envelope = JSON.parse(raw) as { version?: number; savedAt?: number; data?: T };
+      if (envelope.version !== this.SESSION_VERSION || !envelope.savedAt || Date.now() - envelope.savedAt > this.SESSION_TTL_MS) {
+        this.clearActiveSessionLocal();
+        return null;
+      }
+      return envelope.data ?? null;
     } catch (e) {
       console.warn("Could not load session from sessionStorage:", e);
       return null;

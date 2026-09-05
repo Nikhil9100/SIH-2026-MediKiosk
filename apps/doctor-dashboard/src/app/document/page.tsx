@@ -68,8 +68,8 @@ export default function DocumentStep() {
 
   const [docType, setDocType] = useState<DocumentType>("prescription");
   const [currentPageCount, setCurrentPageCount] = useState<number>(0);
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
-  const [hasPhysicalDoc, setHasPhysicalDoc] = useState<boolean>(true);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  const [hasPhysicalDoc, setHasPhysicalDoc] = useState<boolean>(false);
 
   const medications = currentPatient.scannedDocs?.medications || [];
   const labValues = currentPatient.scannedDocs?.labValues || [];
@@ -111,9 +111,9 @@ export default function DocumentStep() {
         const mappedMeds: Medication[] = ocrResult.accumulatedMedications.map((m) => ({
           id: m.id,
           name: m.name,
-          dose: m.dosage || "As directed",
-          frequency: m.frequency || "OD",
-          note: m.note || "post-meal",
+          dose: m.dosage || "",
+          frequency: m.frequency || "",
+          note: m.note || "",
           confidence: m.confidence,
           source: m.confidence < 1.0 ? 'ocr' : 'reported'
         }));
@@ -121,8 +121,8 @@ export default function DocumentStep() {
         const mappedLabs: LabValue[] = ocrResult.accumulatedLabValues.map((l) => ({
           id: l.id,
           test: l.name,
-          value: l.value || "Normal",
-          range: l.referenceRange || "Normal",
+          value: l.value || "",
+          range: l.referenceRange || "",
           flag: (l.abnormalFlag === "high" || l.abnormalFlag === "low") ? l.abnormalFlag : "normal",
           confidence: l.confidence
         }));
@@ -321,7 +321,8 @@ export default function DocumentStep() {
                       alert("Invalid file format. Please upload JPG, PNG, or PDF.");
                       return;
                     }
-                    startScan(docType, true);
+                    setHasPhysicalDoc(true);
+                    startScan(docType, false);
                   }}
                 />
               </label>
@@ -331,7 +332,7 @@ export default function DocumentStep() {
                 className="w-full bg-surface border-2 border-warning/50 text-warning hover:bg-warning-light font-bold text-xs sm:text-sm py-3.5 rounded-2xl animate-press flex items-center justify-center gap-2 transition-colors"
               >
                 <AlertTriangle className="w-4 h-4 text-warning" />
-                Simulate OCR Failure (Fallback Demo)
+                Enter document details manually
               </button>
             </div>
 

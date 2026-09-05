@@ -151,6 +151,11 @@ interface KioskState {
   // Shared OPD Queue
   queue: PatientRecord[];
   selectedPatientId: string | null;
+  submission: {
+    id: string;
+    status: 'DRAFT' | 'SUBMITTING' | 'QUEUED' | 'FAILED' | 'EXPIRED';
+    token?: number;
+  };
 
   // Actions
   setView: (view: 'kiosk' | 'physician' | 'analytics') => void;
@@ -603,50 +608,18 @@ export const useKioskStore = create<KioskState>((set, get) => ({
   easyView: false,
   highContrast: false,
   patientCategory: 'self',
-  activeSession: createEmptyPatientSession('p-101'),
+  activeSession: createEmptyPatientSession(),
 
   currentPatient: {
-    name: 'Arjun Nair',
-    age: 38,
-    gender: 'M',
-    abhaId: '91-7721-3914-1029',
-    mobile: '+91 98112 39011',
-    consultationType: 'ayurveda',
-    complaintId: 'stomach_abdomen',
-    complaintLabel: 'Stomach Pain & Acid Reflux / पेट दर्द व एसिडिटी',
-    complaintIds: ['stomach_abdomen'],
-    complaintLabels: ['Stomach Pain & Acid Reflux / पेट दर्द व एसिडिटी'],
-    severity: 6,
-    duration: '3 Days',
-    prakriti: 'Pitta-Vata',
-    ayushAssessment: {
-      prakriti: 'Pitta-Vata',
-      vikriti: 'Pitta Vriddhi (Amlapitta)',
-      sara: 'Madhyama Sara',
-      samhanana: 'Madhyama',
-      pramana: 'Anuroopa',
-      satmya: 'Madhyama Satmya',
-      sattva: 'Madhyama Sattva',
-      aharaShakti: 'Tikshnagni (Strong hunger, acidity)',
-      vyayamaShakti: 'Madhyama',
-      vaya: 'Madhyama Vaya',
-      ahara: 'Tikshna-Katu (Spicy, fried foods)',
-      vihara: 'Ratri-jagarana (Late sleeping)'
-    },
-    scannedDocs: {
-      medications: [
-        { name: 'Avipattikar Churna', dose: '3g', frequency: 'HS', note: 'warm water', confidence: 0.96, source: 'ocr' },
-        { name: 'Sutshekhar Ras', dose: '125mg', frequency: 'BD', note: 'with honey', confidence: 0.94, source: 'ocr' },
-      ],
-      labValues: [
-        { test: 'Serum Bilirubin', value: '1.2 mg/dL', range: '0.2 – 1.2 mg/dL', flag: 'normal', confidence: 0.95 },
-        { test: 'SGPT/ALT', value: '38 U/L', range: '7 – 56 U/L', flag: 'normal', confidence: 0.96 },
-      ],
-    },
+    name: '', age: 0, gender: '', abhaId: '', mobile: '',
+    consultationType: 'modern', complaintId: '', complaintLabel: '', complaintIds: [], complaintLabels: [],
+    severity: 0, duration: '', prakriti: '', ayushAssessment: {},
+    scannedDocs: { medications: [], labValues: [] },
   },
 
-  queue: SEED_QUEUE,
-  selectedPatientId: 'p-101',
+  queue: [],
+  selectedPatientId: null,
+  submission: { id: '', status: 'DRAFT' },
 
   setView: (view) => set({ activeView: view }),
   setLanguage: (lang) =>
@@ -853,6 +826,7 @@ export const useKioskStore = create<KioskState>((set, get) => ({
     const newSession = createEmptyPatientSession();
     set({
       activeSession: newSession,
+      submission: { id: '', status: 'DRAFT' },
       currentPatient: {
         name: "",
         age: 30,
@@ -887,6 +861,11 @@ export const useKioskStore = create<KioskState>((set, get) => ({
 
   completeIntakeAndEnqueue: () => {
     const state = get();
+    if (state.submission.status === 'QUEUED' && state.submission.token !== undefined) {
+      return state.submission.token;
+    }
+    const submissionId = state.submission.id || `submission-${state.activeSession.sessionId}`;
+    set({ submission: { id: submissionId, status: 'SUBMITTING' } });
     const nextToken = (state.queue[state.queue.length - 1]?.token || 43) + 1;
     
     // 1. Map Complaints to Domain Models
@@ -968,30 +947,18 @@ export const useKioskStore = create<KioskState>((set, get) => ({
       mobile: state.currentPatient.mobile,
       waitSince: Date.now(),
       consultationType: state.currentPatient.consultationType,
-      vitals: {
-        bp: isEmergency ? '154/96 mmHg' : '124/80 mmHg',
-        pulse: isEmergency ? 98 : 78,
-        temp: 98.6,
-        spO2: isEmergency ? 95 : 99,
-        respiratoryRate: isEmergency ? 22 : 16
-      },
+      vitals: undefined,
       complaint: {
         symptomLabel: state.currentPatient.complaintLabel,
         anatomicalRegion: state.currentPatient.complaintId,
         duration: state.currentPatient.duration,
         severity: state.currentPatient.severity,
-        associated: state.currentPatient.complaintHistory?.associatedSymptoms?.length
-          ? state.currentPatient.complaintHistory.associatedSymptoms
-          : ["Fatigue", "Mild headache"],
-        onset: state.currentPatient.complaintHistory?.onset || "Recent onset",
-        character: state.currentPatient.complaintHistory?.character || "Persistent discomfort",
-        radiation: state.currentPatient.complaintHistory?.radiation || "Localized",
-        aggravatingFactors: state.currentPatient.complaintHistory?.aggravatingFactors?.length
-          ? state.currentPatient.complaintHistory.aggravatingFactors
-          : ["Exertion"],
-        relievingFactors: state.currentPatient.complaintHistory?.relievingFactors?.length
-          ? state.currentPatient.complaintHistory.relievingFactors
-          : ["Rest"]
+        associated: state.currentPatient.complaintHistory?.associatedSymptoms,
+        onset: state.currentPatient.complaintHistory?.onset,
+        character: state.currentPatient.complaintHistory?.character,
+        radiation: state.currentPatient.complaintHistory?.radiation,
+        aggravatingFactors: state.currentPatient.complaintHistory?.aggravatingFactors,
+        relievingFactors: state.currentPatient.complaintHistory?.relievingFactors
       },
       ayushAssessment: ayushProfile,
       documents: {
@@ -999,23 +966,10 @@ export const useKioskStore = create<KioskState>((set, get) => ({
         medications: state.currentPatient.scannedDocs.medications,
         labValues: state.currentPatient.scannedDocs.labValues,
       },
-      pastHistory: {
-        medical: ['No prior chronic medical conditions reported'],
-        surgical: ['No prior surgical history']
-      },
-      allergies: [
-        'No Known Drug Allergies (NKDA)'
-      ],
-      familyHistory: [
-        'Non-contributory family medical history'
-      ],
-      personalHistory: {
-        diet: isAyurveda && ayushProfile?.ahara ? ayushProfile.ahara : 'Balanced mixed diet',
-        smoking: 'Non-smoker',
-        alcohol: 'Non-drinker',
-        sleep: isAyurveda && ayushProfile?.vihara ? ayushProfile.vihara : '7-8 hours restful sleep',
-        bowelBladder: isAyurveda && ayushProfile?.koshtha ? `Koshtha: ${ayushProfile.koshtha}` : 'Normal regular habits'
-      },
+      pastHistory: undefined,
+      allergies: undefined,
+      familyHistory: undefined,
+      personalHistory: undefined,
       medicalTimeline: [
         {
           id: "t-" + Date.now(),
@@ -1037,9 +991,11 @@ export const useKioskStore = create<KioskState>((set, get) => ({
     set({
       queue: newQueue,
       selectedPatientId: newRecord.id,
+      submission: { id: submissionId, status: 'QUEUED', token: nextToken },
     });
 
     PersistenceService.saveQueueLocal(newQueue);
+    PersistenceService.saveActiveSessionLocal({ ...state.activeSession, submissionId, token: nextToken });
     return nextToken;
   },
 

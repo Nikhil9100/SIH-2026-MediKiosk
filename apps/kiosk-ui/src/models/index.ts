@@ -223,10 +223,10 @@ export function createEmptyPatientSession(patientId?: string): PatientSession {
     sessionId: `sess-${now}`,
     patient: {
       id,
-      name: "New Patient",
-      age: 30,
-      gender: "M",
-      mobile: "+91 90000 00000",
+      name: "",
+      age: 0,
+      gender: "O",
+      mobile: "",
       registeredAt: now,
     },
     preferredLanguage: "hi",
@@ -237,8 +237,8 @@ export function createEmptyPatientSession(patientId?: string): PatientSession {
     documents: [],
     redFlags: [],
     consent: {
-      granted: true,
-      timestamp: now,
+      granted: false,
+      timestamp: 0,
     },
     metadata: {
       startedAt: now,

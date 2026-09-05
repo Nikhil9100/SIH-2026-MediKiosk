@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import CompactLanguageHeaderControl from "./CompactLanguageHeaderControl";
 
 export default function TopBar() {
+  const isDoctorApp = process.env.NEXT_PUBLIC_APP_ROLE === "doctor";
   const { activeView, setView, queue, easyView, highContrast, toggleEasyView, toggleHighContrast } = useKioskStore();
   const [showSosModal, setShowSosModal] = useState(false);
   const waitingCount = queue.filter(p => p.status === 'waiting').length;
@@ -25,16 +26,13 @@ export default function TopBar() {
               <span className="text-[11px] bg-teal-light text-teal font-semibold px-2 py-0.5 rounded-full border border-teal/20">
                 AIIA · OPD Intake
               </span>
-              <span className="text-[10px] bg-amber-100 text-amber-900 font-bold font-mono px-2 py-0.5 rounded border border-amber-300">
-                Demo Environment
-              </span>
             </div>
             <p className="text-[11px] text-text-muted">Ministry of Ayush · Govt. of India</p>
           </div>
         </div>
 
         {/* Segmented Mode Switcher (3-Way: Patient Intake | Doctor Console | Hospital Analytics) */}
-        <div className="flex items-center bg-surface border border-border p-1 rounded-xl">
+        {isDoctorApp && <div className="flex items-center bg-surface border border-border p-1 rounded-xl">
           <button
             onClick={() => setView('kiosk')}
             className={cn(
@@ -81,7 +79,7 @@ export default function TopBar() {
             <BarChart3 className="w-4 h-4" />
             <span className="hidden sm:inline">Hospital Analytics</span>
           </button>
-        </div>
+        </div>}
 
         {/* System Status Indicators & Accessibility Controls */}
         <div className="flex items-center gap-2">

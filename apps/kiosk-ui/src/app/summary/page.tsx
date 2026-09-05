@@ -3,21 +3,13 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useKioskStore } from "@/store/kioskStore";
-import { 
-  CheckCircle2, 
-  QrCode, 
-  Printer, 
-  Stethoscope, 
-  Sparkles, 
-  MapPin, 
-  Clock,
-  Leaf,
-  Info
+import {
+  CheckCircle2, QrCode, Printer, MapPin, Clock, Leaf, Info
 } from "lucide-react";
 
 export default function SummaryStep() {
   const router = useRouter();
-  const { currentPatient, completeIntakeAndEnqueue, setView, resetPatientSession } = useKioskStore();
+  const { currentPatient, completeIntakeAndEnqueue, resetPatientSession } = useKioskStore();
   const [tokenNumber, setTokenNumber] = useState<number>(43);
   const hasEnqueued = useRef<boolean>(false);
 
@@ -254,25 +246,6 @@ export default function SummaryStep() {
           </div>
         )}
 
-        {/* Live Demo Switcher CTA */}
-        <div className="w-full">
-          <div className="bg-teal-light border-2 border-teal/40 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-            <div>
-              <div className="flex items-center gap-1.5 text-teal font-bold text-sm justify-center sm:justify-start">
-                <Sparkles className="w-4 h-4" /> Live Demo Simulation
-              </div>
-              <p className="text-xs text-text-muted mt-0.5">
-                Switch to Doctor Console to see #{tokenNumber} appear in the physician queue!
-              </p>
-            </div>
-            <button
-              onClick={() => setView('physician')}
-              className="bg-teal text-white font-bold text-sm px-5 py-3 rounded-xl shadow-md hover:bg-teal-bright flex items-center gap-2 shrink-0 animate-press"
-            >
-              <Stethoscope className="w-4 h-4" /> Open Doctor Console →
-            </button>
-          </div>
-        </div>
       </main>
 
       {/* Start Next Patient Button */}
